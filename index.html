@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Xerox Machine Identification Code Decoder</title>
+<link rel="stylesheet" href="static/css/style.css">
+</head>
+<body>
+<div class="container">
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="xerox" onclick="switchTab('xerox')">Xerox</button>
+    <button class="tab-btn" data-tab="konica" onclick="switchTab('konica')">Konica Minolta</button>
+    <button class="tab-btn tab-right" data-tab="calendar" onclick="switchTab('calendar')">Calendar</button>
+  </div>
+
+  <div id="tab-xerox" class="tab-content">
+  <div class="app-header">
+    <h1>Xerox Machine Identification Code Decoder</h1>
+  </div>
+  <div class="panel">
+    <div class="top-bar">
+      <h2>Dot Grid (8 rows &times; 15 columns)</h2>
+      <div class="controls">
+        <button class="btn-danger" onclick="clearGrid()">Clear</button>
+        <button class="btn-secondary" onclick="saveAll()">Save</button>
+        <label class="file-label" for="file-upload">Load</label>
+        <input type="file" id="file-upload" accept=".txt,.csv" onchange="loadFile(event)">
+        <span id="upload-status" style="color:#888;font-size:0.8rem;"></span>
+      </div>
+    </div>
+    <div class="grid-wrapper">
+      <table class="mic-grid" id="mic-grid"></table>
+    </div>
+    <div class="decoded-bar" id="decoded-bar">
+      <div class="decoded-field">
+        <span class="decoded-label">Serial</span>
+        <span class="decoded-value" id="res-serial">&mdash;</span>
+      </div>
+      <div class="decoded-field">
+        <span class="decoded-label">Printed</span>
+        <span class="decoded-value" id="res-timestamp">&mdash;</span>
+      </div>
+    </div>
+    <div class="parity-live" id="parity-live"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Column Reference</h2>
+    <table class="ref-table">
+      <thead>
+        <tr><th>Column</th><th>Field</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td>Parity</td><td>Row parity column (odd parity per row)</td></tr>
+        <tr><td>2</td><td>Minute</td><td>Minute the page was printed</td></tr>
+        <tr class="unused-row"><td>3 &ndash; 4</td><td>Unused</td><td>Typically zero</td></tr>
+        <tr><td>5</td><td>Hour</td><td>Hour the page was printed (24h)</td></tr>
+        <tr><td>6</td><td>Day</td><td>Day of month</td></tr>
+        <tr><td>7</td><td>Month</td><td>Month (1&ndash;12)</td></tr>
+        <tr><td>8</td><td>Year</td><td>Year without century (e.g. 26 = 2026)</td></tr>
+        <tr class="unused-row"><td>9</td><td>Unused</td><td>Typically zero</td></tr>
+        <tr><td>10</td><td>Separator</td><td>Often all 1s (127)</td></tr>
+        <tr><td>11 &ndash; 14</td><td>Serial</td><td>Printer serial number, two decimal digits per column (most significant at col 14)</td></tr>
+        <tr><td>15</td><td>Serial?</td><td>Constant per printer, possibly part of serial number</td></tr>
+      </tbody>
+    </table>
+    <p style="margin-top:0.75rem; font-size:0.8rem; color:#888;">
+      Row 1 is a parity row. Each column's 7 data bits (rows 2&ndash;8) encode a value, MSB at row 2.
+      All rows and columns maintain odd parity.
+    </p>
+    <p style="margin-top:1rem; padding-top:0.75rem; border-top:1px solid #0f3460; font-size:0.8rem; color:#888;">
+      Decode Machine Identification Codes (MIC) from color laser printer pages.
+      Based on <a href="https://w2.eff.org/Privacy/printers/docucolor/" target="_blank" style="color:#f0c040;">EFF research</a>.
+    </p>
+  </div>
+  </div><!-- /tab-xerox -->
+
+  <div id="tab-konica" class="tab-content" style="display:none">
+    <div class="app-header">
+      <h1>Konica Minolta Machine Identification Code Decoder</h1>
+    </div>
+    <div class="panel">
+      <div class="top-bar">
+        <h2>Dot Blocks (30 one-hot base&#8209;6 boxes)</h2>
+        <div class="controls">
+          <button class="btn-danger" onclick="clearKonica()">Clear</button>
+          <label class="file-label" for="konica-file-upload">Load</label>
+          <input type="file" id="konica-file-upload" accept=".txt,.csv" onchange="loadKonicaFile(event)">
+          <span id="konica-status" style="color:#888;font-size:0.8rem;"></span>
+        </div>
+      </div>
+      <p class="konica-help">
+        Each box holds exactly one dot &mdash; click a position inside a box to set it
+        (its location encodes a digit 0&ndash;5). Dots only exist inside the boxes.
+        The yellow upside&#8209;down&nbsp;&ldquo;L&rdquo; is the fixed registration marker.
+        Boxes 1 &amp; 6 are always&#8209;empty spacers. Block type:
+        <span class="kchip kblock-model">model</span>
+        <span class="kchip kblock-time">time</span>
+        <span class="kchip kblock-constant">constant</span>
+      </p>
+      <div class="konica-board-wrap">
+        <div class="konica-board" id="konica-board"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="konica-output">
+      <h2>Decoded</h2>
+      <div id="konica-results"></div>
+    </div>
+  </div><!-- /tab-konica -->
+
+  <div id="tab-calendar" class="tab-content" style="display:none">
+    <div class="app-header">
+      <h1>Print Activity Calendar</h1>
+    </div>
+    <div class="panel">
+      <div class="top-bar">
+        <h2>Batch Upload</h2>
+        <div class="controls">
+          <label class="file-label" for="cal-file-upload">Upload Grid Files</label>
+          <input type="file" id="cal-file-upload" accept=".txt,.csv" multiple onchange="handleCalendarUpload(event)">
+        </div>
+      </div>
+      <div class="cal-status" id="cal-status"></div>
+    </div>
+
+    <div class="panel" id="cal-panel" style="display:none">
+      <div class="cal-year-header">
+        <button class="btn-secondary" onclick="calPrevYear()">&larr;</button>
+        <span class="year-label" id="cal-year-label"></span>
+        <button class="btn-secondary" onclick="calNextYear()">&rarr;</button>
+      </div>
+      <div class="cal-year-grid" id="cal-year-grid"></div>
+    </div>
+
+    <div class="panel" id="cal-detail" style="display:none">
+      <h2 id="cal-detail-title">Prints</h2>
+      <table class="ref-table" id="cal-detail-table">
+        <thead><tr><th>File</th><th>Serial</th><th>Time</th></tr></thead>
+        <tbody id="cal-detail-body"></tbody>
+      </table>
+    </div>
+  </div><!-- /tab-calendar -->
+</div>
+
+<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+<script src="static/js/xerox-decode.js"></script>
+<script src="static/js/grid.js"></script>
+<script src="static/js/fileio.js"></script>
+<script src="static/js/konica-decode.js"></script>
+<script src="static/js/konica.js"></script>
+<script src="static/js/calendar.js"></script>
+<script src="static/js/app.js"></script>
+</body>
+</html>

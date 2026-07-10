@@ -26,14 +26,32 @@ This tool decodes that grid to reveal the embedded information.
 
 ## Setup
 
-Requires Python 3 and Flask.
+This is a fully static site — no server or build step. Open `index.html`
+directly in a browser, or serve the folder over HTTP:
 
 ```bash
-pip install flask
-python app.py
+python -m http.server 8000
 ```
 
-The app runs at `http://localhost:5000`.
+Then visit `http://localhost:8000`.
+
+The **Calendar** tab is hidden by default. Add `?calendar` to the URL to
+show it (e.g. `http://localhost:8000/?calendar`).
+
+### Project layout
+
+```
+index.html            markup for all three tabs
+static/css/style.css  all styles
+static/js/
+  xerox-decode.js     Xerox MIC decoding algorithm (single source of truth)
+  grid.js             interactive dot grid + parity indicators
+  fileio.js           load / save / PNG export (client-side)
+  konica-decode.js    Konica Minolta decoding algorithm (single source of truth)
+  konica.js           interactive one-hot base-6 block board
+  calendar.js         Print Activity Calendar
+  app.js              tab switching, calendar flag, bootstrap
+```
 
 ## Grid Format
 
