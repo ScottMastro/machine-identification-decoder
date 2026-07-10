@@ -19,6 +19,86 @@ const KONICA_LOCKED_BOXES = new Set([0, 1, 6]);
 // Current dot (0-5) selected in each editable box; absent = empty.
 let konicaBoxValues = {};
 
+// Which decoding scheme to apply. 'old' = model number + timestamp (printers
+// made before ~2007); 'new' = full serial number + checksums (2013+). The board
+// itself is identical either way — only the decode interpretation changes.
+let konicaCodeType = 'new';
+
+const KONICA_MODE_HINTS = {
+  old: 'Model code + print timestamp. Used by printers made before ~2007.',
+  new: 'Full serial number, brand, region &amp; model. Used by printers made ~2013+.',
+};
+
+// What each box means under each scheme, used to color the rectangles/mini-
+// blocks and to build the legend. Order here is the legend order. Every box
+// 0-29 is assigned exactly one category per mode.
+const KONICA_FIELD_CATEGORIES = {
+  new: [
+    { key: 'serial',   label: 'Series &amp; model', boxes: [2, 3, 7, 10, 11, 15] },
+    { key: 'brand',    label: 'Brand',              boxes: [27] },
+    { key: 'region',   label: 'Region',             boxes: [21, 22] },
+    { key: 'submodel', label: 'Sub-model',          boxes: [17, 18] },
+    { key: 'batchnum', label: 'Batch &amp; number', boxes: [8, 9, 12, 13, 14, 19, 20] },
+    { key: 'checksum', label: 'Checksum',           boxes: [28, 29] },
+    { key: 'constant', label: 'Constant',           boxes: [0, 4, 5, 16, 23, 24, 25, 26] },
+    { key: 'spacer',   label: 'Spacer',             boxes: [1, 6] },
+  ],
+  old: [
+    { key: 'model',    label: 'Model code',         boxes: [2, 3, 7] },
+    { key: 'time',     label: 'Timestamp',          boxes: [4, 5, 10, 11, 15, 24, 25, 26] },
+    { key: 'parity',   label: 'Parity (mirrored)',  boxes: [8, 9, 12, 13, 14, 16, 17, 18, 19, 20, 21, 22, 23, 27, 28, 29] },
+    { key: 'constant', label: 'Constant',           boxes: [0] },
+    { key: 'spacer',   label: 'Spacer',             boxes: [1, 6] },
+  ],
+};
+
+// Box id -> category key for the active scheme.
+function konicaCategoryMap(mode) {
+  const map = {};
+  for (const cat of KONICA_FIELD_CATEGORIES[mode]) {
+    for (const b of cat.boxes) map[b] = cat.key;
+  }
+  return map;
+}
+
+// Field categories whose color is currently hidden (toggled off via the legend).
+let konicaHiddenColors = new Set();
+
+// Resolve a box's display category, collapsing to the neutral color if hidden.
+function konicaShownCat(cls) {
+  return konicaHiddenColors.has(cls) ? 'default' : cls;
+}
+
+// Build the legend chips for the active scheme. Each chip is a toggle that
+// shows/hides that field's color on the board and mini-blocks.
+function konicaLegendHTML() {
+  return KONICA_FIELD_CATEGORIES[konicaCodeType]
+    .map(c => {
+      const off = konicaHiddenColors.has(c.key) ? ' kchip-off' : '';
+      return '<button type="button" class="kchip kfield-' + c.key + off
+        + '" onclick="toggleKonicaColor(\'' + c.key + '\')">' + c.label + '</button>';
+    })
+    .join(' ');
+}
+
+// Toggle a field category's color on/off, then repaint everything it colors.
+function toggleKonicaColor(key) {
+  if (konicaHiddenColors.has(key)) konicaHiddenColors.delete(key);
+  else konicaHiddenColors.add(key);
+  renderKonicaLegends();
+  renderKonicaBoard();
+  renderKonicaBlocksView();
+}
+
+// Paint the legend into both the top (board) and middle (blocks) sections.
+function renderKonicaLegends() {
+  const html = konicaLegendHTML();
+  for (const id of ['konica-legend-top', 'konica-legend-mid']) {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = html;
+  }
+}
+
 // Grid placement helpers (CSS grid is 1-indexed). Rows never wrap; only the
 // last-column box wraps horizontally.
 function konicaGridRow(r) { return String(r + 1); }
@@ -46,6 +126,7 @@ function renderKonicaBoard() {
   const board = document.getElementById('konica-board');
   board.innerHTML = '';
   const roles = konicaCellRoles();
+  const catMap = konicaCategoryMap(konicaCodeType);
 
   // Layer 1: one element per cell across the full 16x24 grid, so every
   // position is visible. Fillable positions are clickable; the marker is a
@@ -79,7 +160,7 @@ function renderKonicaBoard() {
   // fall through to the dots underneath.
   for (const [id, pos] of Object.entries(KONICA_BLOCK_POSITIONS)) {
     const [r, c] = pos;
-    const cls = KONICA_BLOCK_CLASS[id] || 'default';
+    const cls = konicaShownCat(catMap[id] || 'default');
     // A block is 2 columns wide; the last-column block (23) wraps the edge, so
     // it becomes two half-rectangles at the right and left of the grid.
     const spans = c + 1 < KONICA_GRID_COLS
@@ -98,6 +179,44 @@ function renderKonicaBoard() {
       }
       board.appendChild(rect);
     });
+  }
+}
+
+// Read-only "blocks view": the same dot data, sliced into its 30 blocks and
+// laid out in array order. Each block is a small 3x2 grid showing its single
+// dot, outlined in its type color, with the base-10 digit it encodes below.
+function renderKonicaBlocksView() {
+  const host = document.getElementById('konica-blocks');
+  if (!host) return;
+  host.innerHTML = '';
+  const catMap = konicaCategoryMap(konicaCodeType);
+  for (let id = 0; id < 30; id++) {
+    const val = id === 0 ? 0 : (id in konicaBoxValues ? konicaBoxValues[id] : null);
+    const cls = konicaShownCat(catMap[id] || 'default');
+
+    const block = document.createElement('div');
+    block.className = 'kblock kblock-' + cls;
+
+    const head = document.createElement('div');
+    head.className = 'kblock-id';
+    head.textContent = id;
+    block.appendChild(head);
+
+    const cells = document.createElement('div');
+    cells.className = 'kblock-cells';
+    for (let v = 0; v < 6; v++) {
+      const cell = document.createElement('div');
+      cell.className = 'kblock-cell' + (val === v ? ' filled' : '');
+      cells.appendChild(cell);
+    }
+    block.appendChild(cells);
+
+    const digit = document.createElement('div');
+    digit.className = 'kblock-digit' + (val === null ? ' empty' : '');
+    digit.textContent = val === null ? '·' : String(val);
+    block.appendChild(digit);
+
+    host.appendChild(block);
   }
 }
 
@@ -120,10 +239,28 @@ function runKonicaDecode() {
     if (id === 0) oneHot[id] = 0;
     else oneHot[id] = id in konicaBoxValues ? konicaBoxValues[id] : null;
   }
-  renderKonicaDecode({
-    model: decodeKonicaModelCode(oneHot),
-    timestamps: decodeKonicaTimestamps(oneHot),
+  renderKonicaBlocksView();
+  if (konicaCodeType === 'new') {
+    renderKonicaNewDecode(decodeKonicaNewCode(oneHot));
+  } else {
+    renderKonicaDecode({
+      model: decodeKonicaModelCode(oneHot),
+      timestamps: decodeKonicaTimestamps(oneHot),
+    });
+  }
+}
+
+// Switch between the Old and New decoding schemes and re-decode.
+function setKonicaCodeType(type) {
+  konicaCodeType = type;
+  document.querySelectorAll('#konica-toggle .konica-toggle-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.code === type);
   });
+  const hint = document.getElementById('konica-mode-hint');
+  if (hint) hint.innerHTML = KONICA_MODE_HINTS[type] || '';
+  renderKonicaLegends();
+  renderKonicaBoard(); // recolor the rectangles for this scheme
+  runKonicaDecode();   // re-decode + recolor the mini-blocks
 }
 
 function clearKonica() {
@@ -184,6 +321,70 @@ function renderKonicaDecode(result) {
     + '<tbody>' + tsHTML + '</tbody></table>';
 }
 
+// Render the New Code decode: full serial number, its parts, the resolved
+// printer model, and the two checksum verifications.
+function renderKonicaNewDecode(nc) {
+  const s = nc.serial;
+  const unknown = '<span class="muted">?</span>';
+
+  // Resolve the printer model line (exact, ambiguous, or unknown).
+  let modelHTML;
+  if (nc.model) {
+    modelHTML = '<strong>' + nc.model.make + ' ' + nc.model.model + '</strong> '
+      + '<span class="muted">(' + nc.model.color
+      + (nc.model.year ? ', released ' + nc.model.year : '') + ')</span>';
+  } else if (nc.candidates.length) {
+    modelHTML = '<span class="muted">Sub&#8209;model ' + (s.subModel ?? '?')
+      + ' didn’t match — candidates for <code>' + s.seriesModel + '</code>: </span>'
+      + nc.candidates.map(m => m.make + ' ' + m.model).join(', ');
+  } else {
+    modelHTML = '<span class="muted">Serial&#8209;model code <code>' + s.seriesModel
+      + '</code> not in reference table</span>';
+  }
+
+  const brandStr = s.brand.digit == null ? unknown : (s.brand.digit + ' — ' + s.brand.name);
+  const regionStr = s.region.digit == null ? unknown : (s.region.digit + ' — ' + s.region.name);
+  const batchNumStr = s.batchNumber == null ? unknown
+    : ('<code>' + s.batch + '</code> &middot; <code>' + s.number + '</code>');
+
+  const rows = [
+    ['Series &amp; model', '<code>' + s.seriesModel + '</code>', 'A &middot; [7,3] &middot; [2,15] &middot; [11,10]'],
+    ['Brand', brandStr, '[27, 4]'],
+    ['Region', regionStr, '[22,21]'],
+    ['Sub&#8209;model', s.subModel == null ? unknown : s.subModel, '[17,18]'],
+    ['Batch &middot; number', batchNumStr, '[19,20,12,13,14,8,9] base&#8209;6'],
+  ];
+  const rowsHTML = rows.map(([label, val, ref]) =>
+    '<tr><td>' + label + '</td><td>' + val + '</td><td class="muted">' + ref + '</td></tr>').join('');
+
+  const ckLine = (label, c, box) => {
+    if (c.expected == null || c.actual == null) {
+      return '<li class="muted">' + label + ': not enough dots to verify</li>';
+    }
+    const tag = c.ok
+      ? '<span class="parity-ok">&#10003; OK</span>'
+      : '<span class="parity-err">&#10007; mismatch</span>';
+    return '<li>' + label + ' (box ' + box + '): read ' + c.actual
+      + ', expected ' + c.expected + ' ' + tag + '</li>';
+  };
+
+  document.getElementById('konica-results').innerHTML =
+    '<div class="decoded-bar">'
+    + '<div class="decoded-field"><span class="decoded-label">Serial number</span>'
+    + '<span class="decoded-value">' + s.full + '</span></div>'
+    + '</div>'
+    + '<h3 class="konica-subhead">Printer</h3>'
+    + '<ul class="konica-models"><li>' + modelHTML + '</li></ul>'
+    + '<h3 class="konica-subhead">Serial breakdown</h3>'
+    + '<table class="ref-table"><thead><tr><th>Field</th><th>Value</th><th>Boxes</th></tr></thead>'
+    + '<tbody>' + rowsHTML + '</tbody></table>'
+    + '<h3 class="konica-subhead">Checksum</h3>'
+    + '<ul class="konica-models">'
+    + ckLine('Model check', nc.checksum.model, 28)
+    + ckLine('Serial check', nc.checksum.serial, 29)
+    + '</ul>';
+}
+
 // Optional: load a real 16x24 grid file and populate the board from it.
 function loadKonicaFile(e) {
   const file = e.target.files[0];
@@ -214,6 +415,6 @@ function loadKonicaFile(e) {
 // Render the board immediately so the Konica tab is live without any file.
 function initKonica() {
   konicaBoxValues = {};
-  renderKonicaBoard();
-  runKonicaDecode();
+  // setKonicaCodeType renders the legends, board, and decode for the initial mode.
+  setKonicaCodeType(konicaCodeType);
 }

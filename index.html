@@ -80,6 +80,14 @@
     <div class="app-header">
       <h1>Konica Minolta Machine Identification Code Decoder</h1>
     </div>
+    <div class="konica-mode">
+      <span class="konica-mode-label">Code type</span>
+      <div class="konica-toggle" id="konica-toggle">
+        <button type="button" class="konica-toggle-btn" data-code="old" onclick="setKonicaCodeType('old')">Old code</button>
+        <button type="button" class="konica-toggle-btn active" data-code="new" onclick="setKonicaCodeType('new')">New code</button>
+      </div>
+      <span class="konica-mode-hint muted" id="konica-mode-hint"></span>
+    </div>
     <div class="panel">
       <div class="top-bar">
         <h2>Dot Blocks (30 one-hot base&#8209;6 boxes)</h2>
@@ -94,14 +102,18 @@
         Each box holds exactly one dot &mdash; click a position inside a box to set it
         (its location encodes a digit 0&ndash;5). Dots only exist inside the boxes.
         The yellow upside&#8209;down&nbsp;&ldquo;L&rdquo; is the fixed registration marker.
-        Boxes 1 &amp; 6 are always&#8209;empty spacers. Block type:
-        <span class="kchip kblock-model">model</span>
-        <span class="kchip kblock-time">time</span>
-        <span class="kchip kblock-constant">constant</span>
+        Rectangles are colored by the field each box encodes in the selected code type:
       </p>
+      <div class="konica-legend" id="konica-legend-top"></div>
       <div class="konica-board-wrap">
         <div class="konica-board" id="konica-board"></div>
       </div>
+    </div>
+
+    <div class="panel" id="konica-blocks-panel">
+      <h2>Blocks (array order)</h2>
+      <div class="konica-legend" id="konica-legend-mid"></div>
+      <div class="konica-blocks" id="konica-blocks"></div>
     </div>
 
     <div class="panel" id="konica-output">

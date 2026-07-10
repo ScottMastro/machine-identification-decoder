@@ -172,6 +172,33 @@ input[type="file"] { display: none; }
 .decoded-value { font-size: 1.1rem; font-weight: bold; color: #f0c040; }
 .decoded-value .invalid { color: #e94560; }
 
+/* Konica Minolta: Old/New code toggle. */
+.konica-mode {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+.konica-mode-label { color: #888; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; }
+.konica-toggle {
+  display: inline-flex;
+  border: 1px solid #0f3460;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.konica-toggle-btn {
+  padding: 0.4rem 1.1rem;
+  background: #0f3460;
+  color: #e0e0e0;
+  border: none;
+  border-radius: 0;
+  font-size: 0.9rem;
+}
+.konica-toggle-btn.active { background: #f0c040; color: #1a1a2e; }
+.konica-toggle-btn:not(.active):hover { background: #1a4a7a; }
+.konica-mode-hint { font-size: 0.8rem; }
+
 /* Konica Minolta: one real 16x24 dot grid with block rectangles drawn on top. */
 .konica-help { color: #888; font-size: 0.85rem; margin-bottom: 1rem; }
 .konica-board-wrap { padding: 8px 4px 6px; }
@@ -222,9 +249,40 @@ input[type="file"] { display: none; }
   border-radius: 5px;
   z-index: 2;
 }
-.krect-model    { border-color: #e08a5a; }
-.krect-time     { border-color: #5aa9e0; }
-.krect-constant { border-color: #9aa3b2; }
+/* Field-category colors, shared by board rectangles, mini-blocks and legend
+   chips. New-code fields: serial/brand/region/submodel/batchnum/checksum.
+   Old-code fields: model/time/parity. Both: constant/spacer. */
+.krect-serial,   .kblock.kblock-serial   { border-color: #e6a94d; }
+.krect-brand,    .kblock.kblock-brand    { border-color: #b98ce0; }
+.krect-region,   .kblock.kblock-region   { border-color: #4fb8ac; }
+.krect-submodel, .kblock.kblock-submodel { border-color: #e086b0; }
+.krect-batchnum, .kblock.kblock-batchnum { border-color: #6cc06c; }
+.krect-checksum, .kblock.kblock-checksum { border-color: #e0705a; }
+.krect-model,    .kblock.kblock-model    { border-color: #e08a5a; }
+.krect-time,     .kblock.kblock-time     { border-color: #5aa9e0; }
+.krect-parity,   .kblock.kblock-parity   { border-color: #9a8ce6; }
+.krect-constant, .kblock.kblock-constant { border-color: #8a92a0; }
+.krect-spacer,   .kblock.kblock-spacer   { border-color: #565a6e; }
+
+.kchip.kfield-serial   { border-color: #e6a94d; color: #e6a94d; }
+.kchip.kfield-brand    { border-color: #b98ce0; color: #b98ce0; }
+.kchip.kfield-region   { border-color: #4fb8ac; color: #4fb8ac; }
+.kchip.kfield-submodel { border-color: #e086b0; color: #e086b0; }
+.kchip.kfield-batchnum { border-color: #6cc06c; color: #6cc06c; }
+.kchip.kfield-checksum { border-color: #e0705a; color: #e0705a; }
+.kchip.kfield-model    { border-color: #e08a5a; color: #e08a5a; }
+.kchip.kfield-time     { border-color: #5aa9e0; color: #5aa9e0; }
+.kchip.kfield-parity   { border-color: #9a8ce6; color: #9a8ce6; }
+.kchip.kfield-constant { border-color: #8a92a0; color: #9aa3b2; }
+.kchip.kfield-spacer   { border-color: #565a6e; color: #7a7f96; }
+
+.konica-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.5rem;
+  margin-top: 0.75rem;
+}
+
 .krect-label {
   position: absolute;
   top: -7px;
@@ -238,15 +296,70 @@ input[type="file"] { display: none; }
 
 .kchip {
   display: inline-block;
-  padding: 0 0.4em;
+  padding: 0.1em 0.5em;
   border-radius: 4px;
   border: 1px solid;
   font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.35;
   color: #e0e0e0;
+  background: transparent;
+  cursor: pointer;
+  transition: opacity 0.12s;
 }
-.kchip.kblock-model    { border-color: #e08a5a; color: #e08a5a; }
-.kchip.kblock-time     { border-color: #5aa9e0; color: #5aa9e0; }
-.kchip.kblock-constant { border-color: #888; color: #aaa; }
+.kchip:hover { opacity: 0.8; }
+/* Toggled off: color removed, chip shown as a muted dashed outline. */
+.kchip.kchip-off {
+  border-style: dashed;
+  border-color: #3a3a5c;
+  color: #666;
+}
+
+/* Read-only blocks view: the 30 blocks sliced out in array order. */
+.konica-blocks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
+  gap: 0.45rem;
+}
+.kblock {
+  border: 1px solid #3a3a5c;
+  border-radius: 5px;
+  padding: 5px 4px 3px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.kblock-id {
+  font-size: 0.65rem;
+  color: #888;
+  line-height: 1;
+}
+.kblock-cells {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 4px;
+}
+.kblock-cell {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid #555577;
+  background: #000000;
+}
+.kblock-cell.filled {
+  background: #f0c040;
+  border-color: #f0c040;
+  box-shadow: 0 0 4px rgba(240, 192, 64, 0.55);
+}
+.kblock-digit {
+  font-size: 0.95rem;
+  font-weight: bold;
+  color: #f0c040;
+  line-height: 1;
+}
+.kblock-digit.empty { color: #555; }
 
 .konica-subhead { color: #f0c040; font-size: 0.95rem; margin: 1rem 0 0.5rem; }
 .konica-models { list-style: none; padding: 0; }
