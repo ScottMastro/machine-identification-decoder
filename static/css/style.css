@@ -336,6 +336,7 @@ input[type="file"] { display: none; }
   padding: 0;
   background: #14142400;
   box-sizing: border-box;
+  border-radius: 0;   /* fillable cells are <button>s; kill the global 6px round */
   /* Thin cell lines as inset shadows (top + left). Shadows stack without the
      diagonal miter that borders draw at corners, so lines join cleanly. */
   box-shadow: inset 1px 0 0 0 #2b2b44, inset 0 1px 0 0 #2b2b44;
