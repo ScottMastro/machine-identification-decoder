@@ -369,17 +369,24 @@ input[type="file"] { display: none; }
 /* Field-category colors, shared by board rectangles, mini-blocks and legend
    chips. New-code fields: serial/brand/region/submodel/batchnum/checksum.
    Old-code fields: model/time/parity. Both: constant/spacer. */
-.krect-serial,   .kblock.kblock-serial   { border-color: #e6a94d; }
-.krect-brand,    .kblock.kblock-brand    { border-color: #b98ce0; }
-.krect-region,   .kblock.kblock-region   { border-color: #4fb8ac; }
-.krect-submodel, .kblock.kblock-submodel { border-color: #e086b0; }
-.krect-batchnum, .kblock.kblock-batchnum { border-color: #6cc06c; }
-.krect-checksum, .kblock.kblock-checksum { border-color: #e0705a; }
-.krect-model,    .kblock.kblock-model    { border-color: #e08a5a; }
-.krect-time,     .kblock.kblock-time     { border-color: #5aa9e0; }
-.krect-parity,   .kblock.kblock-parity   { border-color: #9a8ce6; }
-.krect-constant, .kblock.kblock-constant { border-color: #8a92a0; }
-.krect-spacer,   .kblock.kblock-spacer   { border-color: #565a6e; }
+.krect-serial,   .kblock.kblock-serial   { --kcat: #e6a94d; }
+.krect-brand,    .kblock.kblock-brand    { --kcat: #b98ce0; }
+.krect-region,   .kblock.kblock-region   { --kcat: #4fb8ac; }
+.krect-submodel, .kblock.kblock-submodel { --kcat: #e086b0; }
+.krect-batchnum, .kblock.kblock-batchnum { --kcat: #6cc06c; }
+.krect-checksum, .kblock.kblock-checksum { --kcat: #e0705a; }
+.krect-model,    .kblock.kblock-model    { --kcat: #e08a5a; }
+.krect-time,     .kblock.kblock-time     { --kcat: #5aa9e0; }
+.krect-parity,   .kblock.kblock-parity   { --kcat: #9a8ce6; }
+.krect-constant, .kblock.kblock-constant { --kcat: #8a92a0; }
+.krect-spacer,   .kblock.kblock-spacer   { --kcat: #565a6e; }
+/* Both the rectangle border and the box-ID number take the field color. */
+.krect-serial, .krect-brand, .krect-region, .krect-submodel, .krect-batchnum,
+.krect-checksum, .krect-model, .krect-time, .krect-parity, .krect-constant, .krect-spacer,
+.kblock.kblock-serial, .kblock.kblock-brand, .kblock.kblock-region, .kblock.kblock-submodel,
+.kblock.kblock-batchnum, .kblock.kblock-checksum, .kblock.kblock-model, .kblock.kblock-time,
+.kblock.kblock-parity, .kblock.kblock-constant, .kblock.kblock-spacer { border-color: var(--kcat); }
+.kblock[class*="kblock-"] .kblock-id { color: var(--kcat, #888); }
 
 .kchip.kfield-serial   { border-color: #e6a94d; color: #e6a94d; }
 .kchip.kfield-brand    { border-color: #b98ce0; color: #b98ce0; }
@@ -516,7 +523,8 @@ input[type="file"] { display: none; }
   gap: 3px;
 }
 .kblock-id {
-  font-size: 0.65rem;
+  font-size: 0.95rem;
+  font-weight: 700;
   color: #888;
   line-height: 1;
 }
