@@ -334,15 +334,15 @@ input[type="file"] { display: none; }
   background: #14142400;
   box-sizing: border-box;
 }
-/* Valid (in-block) cells read as the interactive area: lighter fill + a real
-   border, so it's obvious where a dot can go. */
-.kcell-fill { background: #20203a; border-color: #3a3a5c; cursor: pointer; }
-.kcell-fill:hover { background: #32324e; }
+/* Same grid coloring as the Xerox grid: normal fillable cells sit a shade
+   above the board, filled cells go yellow. */
+.kcell-fill { background: #12121e; cursor: pointer; }
+.kcell-fill:hover { background: #23233a; }
 .kcell-fill.filled { background: #f0c040; }
 .kcell-fill.filled:hover { background: #f0c040; }
-/* Off-block cells can't hold a dot — recede them so they clearly aren't
-   clickable and don't get mistaken for empty fillable cells. */
-.kcell-off { background: #0a0a10; border-color: #17172a; cursor: default; }
+/* Off-block cells can't hold a dot — same "unused" look as the Xerox grid,
+   here meaning "can't use this position". */
+.kcell-off { background: #0b0b12; cursor: default; }
 /* Fixed thick grid lines (above certain rows / left of certain columns). */
 .kcell.kt { border-top-width: 3px; border-top-color: #c8ccda; }
 .kcell.kl { border-left-width: 3px; border-left-color: #c8ccda; }
