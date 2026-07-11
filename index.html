@@ -146,13 +146,18 @@
         </div>
         <div class="kcy-batch">
           <h4>Batch &amp; number &mdash; base&#8209;6, no cypher</h4>
-          <p class="kmodal-sub">The batch &amp; number field skips the table entirely: its seven
-          boxes (19, 20, 12, 13, 14, 8, 9 &mdash; most significant first) are read as one 7-digit
-          base-6 number, converted to decimal, and zero-padded to six digits &mdash; first three =
-          batch, last three = unit number.</p>
-          <p class="kmodal-sub kcy-example">Example: digits 0&thinsp;0&thinsp;1&thinsp;5&thinsp;1&thinsp;4&thinsp;5
-          &rarr; 0015145<sub>6</sub> = 1&times;6<sup>4</sup> + 5&times;6<sup>3</sup> + 1&times;6<sup>2</sup>
-          + 4&times;6 + 5 = 2441 &rarr; <b>002&thinsp;441</b> (batch 002, number 441).</p>
+          <p class="kmodal-sub">Seven boxes, most significant first, read as one base-6 number
+          &rarr; decimal, padded to six digits: batch + number.</p>
+          <div class="kcy-bn-row">
+            <div class="kcy-cell bn"><span class="kcy-key">19</span><span class="kcy-char">0</span></div>
+            <div class="kcy-cell bn"><span class="kcy-key">20</span><span class="kcy-char">0</span></div>
+            <div class="kcy-cell bn"><span class="kcy-key">12</span><span class="kcy-char">1</span></div>
+            <div class="kcy-cell bn"><span class="kcy-key">13</span><span class="kcy-char">5</span></div>
+            <div class="kcy-cell bn"><span class="kcy-key">14</span><span class="kcy-char">1</span></div>
+            <div class="kcy-cell bn"><span class="kcy-key">8</span><span class="kcy-char">4</span></div>
+            <div class="kcy-cell bn"><span class="kcy-key">9</span><span class="kcy-char">5</span></div>
+            <span class="kcy-bn-conv">= 0015145<sub>6</sub> = 2441 &rarr; <b>002</b>&middot;<b>441</b></span>
+          </div>
         </div>
       </div>
     </div>

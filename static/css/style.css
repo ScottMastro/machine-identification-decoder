@@ -861,10 +861,14 @@ table.ref-table tr.unused-row td { color: #555; }
 .kcy-swatch.digit  { background: #4fb8ac; }
 
 .kcy-batch { margin-top: 1.1rem; padding-top: 0.9rem; border-top: 1px solid #0f3460; }
-.kcy-batch h4 { font-size: 0.82rem; color: #b48ad6; letter-spacing: 0.02em; margin-bottom: 0.35rem; }
-.kcy-batch .kmodal-sub { margin-bottom: 0.5rem; }
-.kcy-example {
+.kcy-batch h4 { font-size: 0.82rem; color: #6cc06c; letter-spacing: 0.02em; margin-bottom: 0.35rem; }
+.kcy-batch .kmodal-sub { margin-bottom: 0.7rem; }
+.kcy-bn-row { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.kcy-cell.bn { padding: 0.3rem 0.45rem; min-width: 2.1rem; }
+.kcy-cell.bn .kcy-char { font-size: 1.1rem; color: #6cc06c; }
+.kcy-bn-conv {
+  margin-left: 0.4rem;
   font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-  font-size: 0.78rem; color: #9aa0b8;
+  font-size: 0.82rem; color: #9aa0b8;
 }
-.kcy-example b { color: #4fb8ac; }
+.kcy-bn-conv b { color: #6cc06c; }
