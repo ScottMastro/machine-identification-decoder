@@ -791,6 +791,43 @@ async function makeKonicaScreenshotBlob() {
   }
 }
 
+// The plain black/white grid render, matching the archived select_dots.py
+// "Save Grid (PNG)": a black cell per dot on white, gray cell outlines, and
+// thick borders after the block-boundary columns/rows. Drawn straight to a
+// canvas, so it does not depend on html2canvas or the current board view.
+function makeKonicaGridImageBlob() {
+  const ROWS = KONICA_GRID_ROWS, COLS = KONICA_GRID_COLS, CS = 40;
+  const THICK_COLS = new Set([3, 6, 9, 12, 15, 18, 21]);
+  const THICK_ROWS = new Set([4, 8, 12]);
+  const canvas = document.createElement('canvas');
+  canvas.width = COLS * CS;
+  canvas.height = ROWS * CS;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'white';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  for (let i = 0; i < ROWS; i++) {
+    for (let j = 0; j < COLS; j++) {
+      const x = j * CS, y = i * CS;
+      ctx.fillStyle = konicaMatrix[i][j] === 1 ? 'black' : 'white';
+      ctx.fillRect(x, y, CS, CS);
+      ctx.strokeStyle = 'gray';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + 0.5, y + 0.5, CS, CS);   // +0.5 for a crisp 1px line
+    }
+  }
+  ctx.strokeStyle = 'black';
+  ctx.lineWidth = 3;
+  for (const col of THICK_COLS) {
+    const x = col * CS;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, ROWS * CS); ctx.stroke();
+  }
+  for (const row of THICK_ROWS) {
+    const y = row * CS;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(COLS * CS, y); ctx.stroke();
+  }
+  return new Promise(res => canvas.toBlob(res, 'image/png'));
+}
+
 // Save the current dot layout — a reloadable .txt grid plus a .png visual —
 // mirroring the Xerox Save so a hand-traced pattern can be produced and later
 // re-uploaded. Prefers the File System Access directory picker, else downloads.
@@ -803,26 +840,15 @@ async function saveKonica() {
   const prefix = name || 'konica_mic';
 
   const txtBlob = new Blob([konicaGridToText()], { type: 'text/plain' });
-  const pngBlob = await makeKonicaScreenshotBlob();
+  const pngBlob = await makeKonicaScreenshotBlob();   // captioned colored board
+  const gridBlob = await makeKonicaGridImageBlob();   // plain b/w grid view
 
-  // Try the directory picker (shared with the Xerox tab via fileio.js).
-  if (window.showDirectoryPicker) {
-    try {
-      savedDirHandle = savedDirHandle || await window.showDirectoryPicker({ startIn: 'documents' });
-    } catch (e) {
-      if (e.name === 'AbortError') return;
-      savedDirHandle = null;
-    }
-    if (savedDirHandle) {
-      await writeFileToDir(savedDirHandle, prefix + '.txt', txtBlob);
-      if (pngBlob) await writeFileToDir(savedDirHandle, prefix + '.png', pngBlob);
-      return;
-    }
-  }
-
-  // Fallback: browser downloads.
+  // Download straight to the browser's download folder. The File System Access
+  // directory picker is deliberately avoided: Chrome blocks "system" folders
+  // (including the localhost project dir), which just fails the save.
   downloadBlob(txtBlob, prefix + '.txt');
   if (pngBlob) downloadBlob(pngBlob, prefix + '.png');
+  if (gridBlob) downloadBlob(gridBlob, prefix + '.grid.png');
 }
 
 function downloadBlob(blob, filename) {

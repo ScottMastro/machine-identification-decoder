@@ -1,24 +1,5 @@
 // Loading and saving grids — entirely client-side (no server).
-// Save writes a .txt (CSV) and a .png screenshot, preferring the File System
-// Access API's directory picker and falling back to browser downloads.
-
-let savedDirHandle = null;
-
-async function writeFileToDir(dirHandle, fileName, blob) {
-  let overwrite = true;
-  try {
-    await dirHandle.getFileHandle(fileName);
-    overwrite = confirm(fileName + ' already exists. Overwrite?');
-  } catch (e) {
-    // File doesn't exist, proceed
-  }
-  if (!overwrite) return false;
-  const fileHandle = await dirHandle.getFileHandle(fileName, { create: true });
-  const writable = await fileHandle.createWritable();
-  await writable.write(blob);
-  await writable.close();
-  return true;
-}
+// Save writes a .txt (CSV) and a .png screenshot as browser downloads.
 
 async function makeScreenshotBlob() {
   document.querySelectorAll('.dot.parity-dot').forEach(dot => {
@@ -49,28 +30,9 @@ async function saveAll() {
   if (name === null) return;
   const prefix = name || 'xerox_mic';
 
-  // Try File System Access API (directory picker)
-  if (window.showDirectoryPicker) {
-    try {
-      savedDirHandle = savedDirHandle || await window.showDirectoryPicker({ startIn: 'documents' });
-    } catch (e) {
-      if (e.name === 'AbortError') return;
-      savedDirHandle = null;
-    }
-    if (savedDirHandle) {
-      // Build .txt blob
-      const lines = grid.map(row => row.join(','));
-      const txtBlob = new Blob([lines.join('\n')], { type: 'text/plain' });
-      await writeFileToDir(savedDirHandle, prefix + '.txt', txtBlob);
-
-      // Build .png blob
-      const pngBlob = await makeScreenshotBlob();
-      await writeFileToDir(savedDirHandle, prefix + '.png', pngBlob);
-      return;
-    }
-  }
-
-  // Fallback: browser downloads
+  // Download straight to the browser's download folder. The File System Access
+  // directory picker is deliberately avoided: Chrome blocks "system" folders
+  // (including the localhost project dir), which just fails the save.
   const lines = grid.map(row => row.join(','));
   const txtBlob = new Blob([lines.join('\n')], { type: 'text/plain' });
   const txtUrl = URL.createObjectURL(txtBlob);
