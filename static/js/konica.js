@@ -337,8 +337,9 @@ function setKonicaView(view) {
   document.querySelectorAll('#konica-view-toggle .tab-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.view === view);
   });
-  const legend = document.getElementById('konica-legend-top');
-  if (legend) legend.style.display = view === 'grid' ? 'none' : '';
+  // Keep the legend shown in both views: it still controls the middle
+  // "Blocks (array order)" coloring, and leaving it in place keeps the board
+  // in the exact same position/size when toggling views (no layout jump).
   const help = document.getElementById('konica-help-text');
   if (help) help.innerHTML = KONICA_VIEW_HELP[view] || '';
   renderKonicaBoard();
