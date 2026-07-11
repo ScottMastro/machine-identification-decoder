@@ -66,33 +66,35 @@ function syncKonicaBoxValues() {
 }
 
 // Which decoding scheme to apply. 'old' = model number + timestamp (printers
-// made before ~2007); 'new' = full serial number + checksums (2013+). The board
-// itself is identical either way — only the decode interpretation changes.
+// made before ~2012); 'new' = full serial number + checksums (the Bizhub C754
+// generation, ~2012, onward). The board itself is identical either way — only
+// the decode interpretation changes.
 let konicaCodeType = 'new';
 
 const KONICA_MODE_HINTS = {
-  old: 'Model code + print timestamp. Used by printers made before ~2007.',
-  new: 'Full serial number, brand, region &amp; model. Used by printers made ~2013+.',
+  old: 'Model code + print timestamp. Used by printers made before ~2012.',
+  new: 'Full serial number, brand, region &amp; model. Used by printers made ~2012+.',
 };
 
-// Pseudo-box id for the brand's low digit. The real box is ONE of the always-5
-// boxes (4, 5, 23-26) but is unidentifiable while every known sample is brand
-// Konica ('0' = pair 1,5 — they all read 5). Rendered as a "?" mini-block whose
-// value is fixed to 5; replace with the real box id once a non-Konica sample
-// reveals it.
-const KONICA_BRAND_LO = '?';
+// The box holding the brand's low digit. Donovan could only narrow it to ONE
+// of the always-5 boxes (4, 5, 23-26); PUB-0004 (a Bizhub C754 whose dots
+// decode exactly to its label serial) pins box 23 — its brand char '0' =
+// pair (1,5) needs a 5, and boxes 4, 5, 24-26 hold that machine's print date
+// instead, leaving 23 as the only candidate still reading 5.
+const KONICA_BRAND_LO = 23;
 
 // New-code boxes that hold the same value on every known sample (null = blank).
 // They carry no serial data, but they act as a sanity check: a box that differs
 // means the pattern was mis-traced (or this printer breaks the pattern).
-// Verified invariant across all new-code samples in the dataset.
+// (Boxes 4, 5, 24-26 used to sit here as always-5 — they are really the
+// timestamp, unset on every post-C754-era sample; box 23 is the brand's low
+// digit. See KONICA_BRAND_LO and the Timestamp section.)
 const KONICA_NEW_CONSTANTS = {
-  0: 0, 1: null, 4: 5, 5: 5, 6: null, 18: 0, 23: 5, 24: 5, 25: 5, 26: 5,
+  0: 0, 1: null, 6: null, 18: 0,
 };
 
-// Display order: the marker/blank/zero boxes first (0, 1, 6, 18), then the
-// always-5 boxes in numerical order.
-const KONICA_NEW_CONSTANT_ORDER = [0, 1, 6, 18, 4, 5, 23, 24, 25, 26];
+// Display order: marker/blank boxes first, then the always-0 unknown box 18.
+const KONICA_NEW_CONSTANT_ORDER = [0, 1, 6, 18];
 
 // What each box means under each scheme, used to color the rectangles/mini-
 // blocks and to build the legend. Order here is the legend order. Every box
@@ -100,12 +102,13 @@ const KONICA_NEW_CONSTANT_ORDER = [0, 1, 6, 18, 4, 5, 23, 24, 25, 26];
 const KONICA_FIELD_CATEGORIES = {
   new: [
     { key: 'serial',   label: 'Series &amp; model', boxes: [2, 3, 7, 10, 11, 15] },
-    { key: 'brand',    label: 'Brand',              boxes: [27] },
+    { key: 'brand',    label: 'Brand',              boxes: [27, 23] },
     { key: 'region',   label: 'Region',             boxes: [21, 22] },
     { key: 'submodel', label: 'Sub-model',          boxes: [17, 16] },
     { key: 'batchnum', label: 'Batch &amp; number', boxes: [8, 9, 12, 13, 14, 19, 20] },
     { key: 'checksum', label: 'Checksum',           boxes: [28, 29] },
-    { key: 'constant', label: 'Constant',           boxes: [0, 1, 4, 5, 6, 18, 23, 24, 25, 26] },
+    { key: 'time',     label: 'Timestamp',          boxes: [4, 5, 24, 25, 26] },
+    { key: 'constant', label: 'Constant',           boxes: [0, 1, 6, 18] },
   ],
   old: [
     { key: 'model',    label: 'Model code',         boxes: [2, 3, 7] },
@@ -136,11 +139,11 @@ const KONICA_SECTIONS = {
       { boxes: [11, 10], conv: 'cypher', label: '4th char' },
     ] },
     { key: 'brand',    label: 'Brand', note:
-        'Box&nbsp;27 is the high digit. The low digit is <em>one of</em> the always-5 boxes '
-        + '(4, 5, 23&ndash;26) &mdash; every known sample is brand Konica (&ldquo;0&rdquo; = pair 1,5), so '
-        + 'all six read 5 and the real box can&rsquo;t be identified yet. Shown as &ldquo;?&rdquo; with '
-        + 'its value fixed to 5 until a non-Konica sample settles it.', parts: [
-      { boxes: [27, KONICA_BRAND_LO], conv: 'cypher', label: 'brand' },
+        'Box&nbsp;27 is the high digit, box&nbsp;23 the low. Donovan could only narrow the low '
+        + 'digit to one of the always-5 boxes (4, 5, 23&ndash;26); the label-verified C754 sample '
+        + 'pins box&nbsp;23 &mdash; its brand char &ldquo;0&rdquo; = pair (1,5) needs a 5, and boxes 4, 5, '
+        + '24&ndash;26 hold that machine&rsquo;s print date instead.', parts: [
+      { boxes: [27, 23], conv: 'cypher', label: 'brand' },
     ] },
     { key: 'region',   label: 'Region',    parts: [{ boxes: [22, 21], conv: 'cypher', label: 'region' }] },
     { key: 'submodel', label: 'Sub-model', parts: [{ boxes: [17, 16], conv: 'cypher', label: 'sub-model' }] },
@@ -151,15 +154,23 @@ const KONICA_SECTIONS = {
     ] },
     { key: 'checksum', label: 'Checksum', note:
         'Box&nbsp;28 checks the model boxes (2,3,7,10,11,15); box&nbsp;29 checks the serial '
-        + 'boxes (8,9,12,13,14,16,17,18,19,20,21,22,?,27). Each = (6 &minus; &Sigma; mod 6) mod 6.', parts: [
+        + 'boxes (8,9,12,13,14,16,17,18,19,20,21,22,23,27). Each = (6 &minus; &Sigma; mod 6) mod 6.', parts: [
       { boxes: [28], conv: 'none', label: 'model check' },
       { boxes: [29], conv: 'none', label: 'serial check' },
     ] },
-    { key: 'constant', label: 'Constant', parts: [{ boxes: [0, 1, 4, 5, 6, 18, 23, 24, 25, 26], conv: 'none' }] },
+    { key: 'time', label: 'Timestamp', note:
+        'Day and month as two-box base-6 pairs; the year is a single digit = year mod 6 '
+        + '(2010 &equiv; 0). Verified against two paper-dated C754 prints. Only early '
+        + '(~2012&ndash;2016) new-code machines set these; all 5s = no timestamp.', parts: [
+      { boxes: [25, 24], conv: 'base6', label: 'day' },
+      { boxes: [4, 26],  conv: 'base6', label: 'month' },
+      { boxes: [5],      conv: 'base6', label: 'year mod 6' },
+    ] },
+    { key: 'constant', label: 'Constant', parts: [{ boxes: [0, 1, 6, 18], conv: 'none' }] },
   ],
   old: [
     { key: 'model', label: 'Model code', note:
-        'Boxes 7,3,2 read as base-6 &rarr; base-10 (box&nbsp;7 is always 0).', parts: [
+        'Boxes 7,3,2 read as base-6 &rarr; base-10 (box&nbsp;7 is the most-significant digit).', parts: [
       { boxes: [7, 3, 2], conv: 'base6', label: 'model code' },
     ] },
     { key: 'time', label: 'Timestamp', note:
@@ -337,7 +348,6 @@ function renderKonicaBoard() {
 // The base-6 digit currently in a box (box 0 is the marker anchor, always 0;
 // null = empty box).
 function konicaDigit(id) {
-  if (id === KONICA_BRAND_LO) return 5; // unidentified always-5 box (see KONICA_BRAND_LO)
   if (id === 0) return 0;
   return id in konicaBoxValues ? konicaBoxValues[id] : null;
 }
@@ -349,15 +359,15 @@ function konicaDigit(id) {
 function konicaMiniBlock(id, forceColor) {
   const catMap = konicaCategoryMap(konicaCodeType);
   const val = konicaDigit(id);
-  const raw = id === KONICA_BRAND_LO ? 'brand' : (catMap[id] || 'default');
+  const raw = catMap[id] || 'default';
   const cls = forceColor ? raw : konicaShownCat(raw);
 
   const block = document.createElement('div');
   block.className = 'kblock kblock-' + cls;
-  if (id === KONICA_BRAND_LO) {
-    block.title = 'One of the always-5 boxes (4, 5, 23–26). Which one carries the '
-      + 'brand’s low digit is unknown — value fixed to 5 until a non-Konica '
-      + 'sample identifies it.';
+  if (id === KONICA_BRAND_LO && konicaCodeType === 'new') {
+    block.title = 'Brand low digit. Pinned to box 23 by the label-verified C754 '
+      + 'sample: its brand char 0 = pair (1,5) needs a 5, and boxes 4, 5, 24–26 '
+      + 'hold that machine’s print date instead.';
   }
 
   const head = document.createElement('div');
@@ -452,13 +462,18 @@ function konicaCurrentOneHot() {
 // show yet). Ties the per-part translations together into the decoded field.
 function konicaSectionSummary(key, oneHot) {
   if (konicaCodeType === 'new') {
-    const s = decodeKonicaNewCode(oneHot).serial;
+    const nc = decodeKonicaNewCode(oneHot);
+    const s = nc.serial;
     switch (key) {
       case 'serial':   return s.seriesModel.slice(1); // drop the implicit leading "A" (not dot-encoded)
       case 'brand':    return s.brand.digit == null ? null : s.brand.digit + ' &middot; ' + s.brand.name;
       case 'region':   return s.region.digit == null ? null : s.region.digit + ' &middot; ' + s.region.name;
       case 'submodel': return s.subModel == null ? null : String(s.subModel);
       case 'batchnum': return s.batchNumber == null ? null : s.batch + ' &middot; ' + s.number;
+      case 'time':     return nc.time.set
+        ? nc.time.day + ' ' + (KONICA_MONTHS[nc.time.month] || nc.time.month)
+          + (nc.time.yearMod6 == null ? '' : ' &middot; year &equiv; ' + nc.time.yearMod6 + ' mod 6')
+        : 'not set';
       default:         return null;
     }
   }
@@ -565,7 +580,7 @@ function konicaChecksumRow(label, checkBoxes, checkBox, c, oneHot) {
   if (c.expected == null || c.actual == null) {
     return '<li class="muted">' + label + ' (box ' + checkBox + '): not enough dots to verify</li>';
   }
-  const sum = checkBoxes.reduce((a, b) => a + (b === KONICA_BRAND_LO ? konicaDigit(b) : oneHot[b]), 0);
+  const sum = checkBoxes.reduce((a, b) => a + oneHot[b], 0);
   // Each summed box as a full mini-block, just like the serial strip above.
   const terms = checkBoxes.map(b => konicaMiniBlock(b, true).outerHTML)
     .join('<span class="kck-op">+</span>');
@@ -606,7 +621,7 @@ function konicaConstantsRow(oneHot) {
     + '<div class="kck-row">' + cells + '</div>'
     + '</li>'
     + '<li class="kconst-note muted">The value under each box is what it should read &mdash; every '
-    + 'known sample holds these same values (blank, 0 or 5). They carry no serial data, but if one '
+    + 'known sample holds these same values (blank or 0). They carry no serial data, but if one '
     + 'differs the pattern was probably mis-traced.</li>';
 }
 
@@ -665,27 +680,30 @@ function renderKonicaBlocksView() {
 // New scheme: full serial number, the field-by-field strip, and checksums.
 function renderKonicaDecodedNew(host, oneHot) {
   const nc = decodeKonicaNewCode(oneHot);
-  host.appendChild(konicaDecodedBar([{ label: 'Serial number', value: nc.serial.full }]));
+  const bar = [{ label: 'Serial number', value: nc.serial.full }];
+  if (nc.time.set) {
+    bar.push({ label: 'Printed', value:
+      nc.time.day + ' ' + (KONICA_MONTHS[nc.time.month] || nc.time.month)
+      + (nc.time.yearMod6 == null ? '' : ' &middot; year &equiv; ' + nc.time.yearMod6 + ' mod 6') });
+  }
+  host.appendChild(konicaDecodedBar(bar));
   host.appendChild(renderKonicaSerialStrip(oneHot));
   const brandNote = document.createElement('div');
   brandNote.className = 'kfield-note';
-  brandNote.innerHTML = 'The &ldquo;?&rdquo; box: the brand&rsquo;s second digit sits in one of the '
-    + 'constant-5 boxes (4, 5, 23&ndash;26), but every known sample reads 5 there, so which '
-    + 'box it is can&rsquo;t be determined yet.';
+  brandNote.innerHTML = 'Box&nbsp;23 (the brand&rsquo;s low digit) was long unidentifiable &mdash; '
+    + 'Donovan could only say it was one of the always-5 boxes (4, 5, 23&ndash;26). The '
+    + 'label-verified C754 sample pins it: that machine&rsquo;s brand char &ldquo;0&rdquo; = pair (1,5) '
+    + 'needs a 5, and boxes 4, 5, 24&ndash;26 hold its print date instead.';
   host.appendChild(brandNote);
-  // The serial sum is displayed with the "?" pseudo-box in place of box 23:
-  // the checksum arithmetic proves exactly one always-5 box is summed, but not
-  // which one (the decoder uses 23 for the math; the value is 5 either way).
-  const serialCheckDisplay = KONICA_SERIAL_CHECK_BOXES.map(b => b === 23 ? KONICA_BRAND_LO : b);
+  host.appendChild(konicaFieldBox(konicaSectionByKey('time'), oneHot, 'Date'));
   host.appendChild(konicaSubsection('Checksum (Parity)',
     konicaChecksumRow('Model check', KONICA_MODEL_CHECK_BOXES, 28, nc.checksum.model, oneHot)
-    + konicaChecksumRow('Serial check', serialCheckDisplay, 29, nc.checksum.serial, oneHot)));
+    + konicaChecksumRow('Serial check', KONICA_SERIAL_CHECK_BOXES, 29, nc.checksum.serial, oneHot)));
   const checkNote = document.createElement('div');
   checkNote.className = 'kfield-note';
-  checkNote.innerHTML = 'Two boxes in the serial sum are provisional: the &ldquo;?&rdquo; box &mdash; the '
-    + 'checksum provably includes exactly one of the always-5 boxes (4, 5, 23&ndash;26), most '
-    + 'likely the brand&rsquo;s low digit, but which one is unknown &mdash; and box&nbsp;18, always 0 '
-    + 'in every known sample with an unknown role, kept in the sum where a 0 changes nothing.';
+  checkNote.innerHTML = 'One box in the serial sum is provisional: box&nbsp;18 &mdash; always 0 in '
+    + 'every known sample with an unknown role, kept in the sum where a 0 changes nothing. '
+    + 'Box&nbsp;23&rsquo;s membership is settled (it&rsquo;s the brand&rsquo;s low digit).';
   host.appendChild(checkNote);
   host.appendChild(konicaSubsection('Constants', konicaConstantsRow(oneHot)));
 }
@@ -693,6 +711,25 @@ function renderKonicaDecodedNew(host, oneHot) {
 // Old scheme: model code up top, likely printer, then Date and Parity sections.
 function renderKonicaDecodedOld(host, oneHot) {
   const model = decodeKonicaModelCode(oneHot);
+
+  // The old code duplicates its payload into mirrored pairs. When several
+  // pairs disagree, this is almost certainly a NEW-code pattern read through
+  // the old lens (its "model code" is then just the first serial characters):
+  // every such sample in the dataset decodes to a valid new-code serial.
+  const broken = konicaSectionByKey('parity').parts.filter(p => {
+    const a = konicaDigit(p.boxes[0]), b = konicaDigit(p.boxes[1]);
+    return a != null && b != null && a !== b;
+  }).length;
+  if (broken >= 3 || model.newCode) {
+    const warn = document.createElement('div');
+    warn.className = 'kfield-note kfield-warn';
+    warn.innerHTML = '&#9888; '
+      + (broken >= 3 ? broken + ' of 8 mirrored pairs disagree &mdash; this ' : 'This ')
+      + 'looks like a <b>new-code</b> pattern (the &ldquo;model code&rdquo; below is really its '
+      + 'first serial characters). Switch the scheme to <b>New code</b>.';
+    host.appendChild(warn);
+  }
+
   host.appendChild(konicaDecodedBar([
     { label: 'Model code',  value: model.code },
     { label: 'Base&#8209;6', value: model.base6 },

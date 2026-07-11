@@ -563,6 +563,19 @@ input[type="file"] { display: none; }
   color: #7a7f96;
 }
 
+/* Warning note: probably decoding with the wrong scheme (e.g. a new-code
+   pattern shown under the old decoder). */
+.kfield-warn {
+  margin: 0.5rem 0;
+  padding: 0.45rem 0.6rem;
+  background: #2a1e12;
+  border: 1px solid #5a4020;
+  border-left: 3px solid #f0c040;
+  border-radius: 4px;
+  color: #d8b878;
+  font-size: 0.78rem;
+}
+
 /* Field accent colors, matching the legend / board rectangles. */
 .kfield-box-serial   { border-left-color: #e6a94d; }
 .kfield-box-brand    { border-left-color: #b98ce0; }

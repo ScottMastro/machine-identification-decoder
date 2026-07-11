@@ -43,11 +43,13 @@ const KONICA_MODEL_BLOCKS = [7, 3, 2];
 // Time blocks in the order the format strings consume them.
 const KONICA_TIME_BLOCK_ORDER = [25, 24, 4, 26, 10, 5, 15, 11];
 
-// Two known timestamp layouts. Each character names the field a time block
+// The old-code timestamp layout. Each character names the field a time block
 // feeds; paired upper/lower letters are the high/low base-6 digits of a value.
 //   HhDdMmYy - Magicolor 8650, Bizhub 350C, DiALTA Color CF-2001 / CF-1501
-//   dDMmXyXY - Bizhub C754 (X = unknown / unused)
-const KONICA_DATE_FORMATS = ['HhDdMmYy', 'dDMmXyXY'];
+// (A second "Bizhub C754 alternate layout" used to live here — it was a mis-fit:
+// the C754 is actually a NEW-code printer, and its real timestamp lives in the
+// new-code layout below. See analysis/07_oldcode_serial.py.)
+const KONICA_DATE_FORMATS = ['HhDdMmYy'];
 
 const KONICA_MONTHS = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -64,13 +66,17 @@ const KONICA_MODEL_TABLE = {
   18:  { year: 2005, models: ['Konica Minolta Bizhub C252'] },
   19:  { year: 2005, models: ['Konica Minolta Magicolor 2430DL'] },
   36:  { year: 2008, models: ['Konica Minolta Magicolor 8650'] },
-  79:  { year: 2012, models: ['Konica Minolta Bizhub C754'] },
-  108: { year: 2016, models: ['Konica Minolta (unknown model)'] },
-  111: { year: 2016, models: ['Konica Minolta Bizhub C658'] },
-  122: { year: 2019, models: ['Konica Minolta Bizhub C3350i / C3351i'] },
-  128: { year: 2019, models: ['Konica Minolta Bizhub C250i', 'Konica Minolta Bizhub C300i', 'Konica Minolta Bizhub C360i'] },
-  129: { year: 2019, models: ['Konica Minolta (unknown model)'] },
-  141: { year: 2021, models: ['Konica Minolta Bizhub AccurioPrint C4065'] },
+  // Codes >= 79 are artifacts, not real old-code models: on a NEW-code pattern
+  // boxes [7,3,2] hold serial characters (char 2 hi/lo + char 3 hi), so each
+  // "code" is a family of new-code serial prefixes (e.g. A7PU -> 3,0,0 -> 108).
+  // Kept as signposts; the old-code panel warns and defers to the new decode.
+  79:  { year: 2012, newCode: true, models: ['New-code serials A2V?–A20? (e.g. Bizhub C754 / C754e / C654e)'] },
+  108: { year: 2015, newCode: true, models: ['New-code serials A7P?–A7U? (e.g. Bizhub C368 / C308 / C258)'] },
+  111: { year: 2016, newCode: true, models: ['New-code serials A77?–A7C? (e.g. Bizhub C658 / C558 / C458)'] },
+  122: { year: 2017, newCode: true, models: ['New-code serials A91?–A96? (e.g. Bizhub C3351, C3350i / C3351i)'] },
+  128: { year: 2019, newCode: true, models: ['New-code serials AA1?–AA6? (e.g. Bizhub C250i / C300i / C360i)'] },
+  129: { year: 2020, newCode: true, models: ['New-code serials AA7?–AAC? (e.g. Bizhub C450i / C550i / C650i)'] },
+  141: { year: 2021, newCode: true, models: ['New-code serials AC7?–ACC? (e.g. Bizhub 650i, AccurioPrint C4065)'] },
 };
 
 // Parse a whitespace- or comma-separated grid of 0/1 into a 2D array.
@@ -115,7 +121,8 @@ function decodeKonicaModelCode(oneHot) {
   const base6 = digits.join('');
   const code = parseInt(base6, 6);
   const entry = KONICA_MODEL_TABLE[code] || null;
-  return { base6, code, year: entry ? entry.year : null, models: entry ? entry.models : [] };
+  return { base6, code, year: entry ? entry.year : null, models: entry ? entry.models : [],
+    newCode: entry ? !!entry.newCode : false };
 }
 
 // Convert a base-6 two-digit pair (high, low) to a decimal value.
@@ -154,7 +161,8 @@ function decodeKonicaTimestamps(oneHot) {
 }
 
 // ---------------------------------------------------------------------------
-// New Code (printers made ~2013+). Instead of a model number + timestamp, the
+// New Code (printers made ~2012+, starting with the Bizhub C754 generation).
+// Instead of a model number + mirrored-parity payload, the
 // blocks spell out the printer's full serial number, plus checksum boxes.
 //
 // The two block digits (each 0-5) are used as written to key the cypher table:
@@ -180,6 +188,9 @@ const KONICA_BRANDS = { 0: 'Konica', 1: 'Develop', 2: 'Lexmark', 3: 'Olivetti' }
 // Australian university. Same 230V as Europe, so the digit enumerates
 // destination markets, not voltages. Australia is all we've actually seen;
 // whether 4 covers a wider Asia-Pacific market is unknown. 3 never observed.
+// Region 8 appears on the two C754s (PUB-0004/5), machines operated in China
+// by the source paper's authors — suggestive, but the market is unconfirmed,
+// so 8 stays unmapped and shows as Unknown.
 const KONICA_REGIONS = {
   0: 'Japan (100V)', 1: 'North America (120V)', 2: 'Europe (220-240V)',
   4: 'Australia (220-240V)',
@@ -214,6 +225,8 @@ const KONICA_NEW_MODELS = [
   { serial: 'A1UF', sub: 1, make: 'bizhub', model: '283', color: 'BW', year: '6/2010' },
   { serial: 'A1UG', sub: 1, make: 'bizhub', model: '223', color: 'BW', year: '6/2010' },
   { serial: 'A2WV', sub: 1, make: 'bizhub', model: '552', color: 'BW', year: '2/2011' },
+  // Not in Donovan's table; established by PUB-0004 (label-verified C754, sub 1).
+  { serial: 'A2X0', sub: 1, make: 'bizhub', model: 'C754', color: 'Color', year: '7/2012' },
   { serial: 'A2X0', sub: 7, make: 'bizhub', model: 'C754e', color: 'Color', year: '7/2013' },
   { serial: 'A2X1', sub: 7, make: 'bizhub', model: 'C654e', color: 'Color', year: '7/2013' },
   { serial: 'A2YF', sub: 1, make: 'bizhub', model: 'C25', color: 'Color', year: '4/2011' },
@@ -323,15 +336,15 @@ function konicaCypherDigit(hiBox, loBox, oneHot) {
   return ch !== null && /^[0-9]$/.test(ch) ? Number(ch) : null;
 }
 
-// Brand: box 27 is the hi digit. The lo digit lives in ONE of the always-5
-// boxes (4, 5, 23-26), but which one is unidentifiable while every known
-// sample is brand Konica ('0' = pair 1,5 — they all read 5). Until a
-// non-Konica sample reveals the real box, the lo digit is hardcoded to 5
-// rather than pretending to read a specific box.
+// Brand: box 27 is the hi digit, box 23 the lo. Donovan could only narrow the
+// lo digit to ONE of the always-5 boxes (4, 5, 23-26); PUB-0004 (a Bizhub C754
+// whose dots decode exactly to its label serial A2X0081000038) settles it: the
+// brand char '0' = pair (1,5) needs a 5, and box 23 is the only candidate box
+// still reading 5 there — boxes 4, 5, 24-26 hold that machine's print date
+// instead (see the timestamp in decodeKonicaNewCode).
 function konicaBrandDigit(oneHot) {
-  if (oneHot[27] == null) return null;
-  const ch = KONICA_CYPHER[oneHot[27] * 10 + 5];
-  return ch !== undefined && /^[0-9]$/.test(ch) ? Number(ch) : null;
+  const ch = konicaCypher(27, 23, oneHot);
+  return ch !== null && /^[0-9]$/.test(ch) ? Number(ch) : null;
 }
 
 // Look up the printer by its 4-char serial-model code and sub-model.
@@ -386,7 +399,28 @@ function decodeKonicaNewCode(oneHot) {
   const modelCheck = konicaChecksum(KONICA_MODEL_CHECK_BOXES, oneHot);
   const serialCheck = konicaChecksum(KONICA_SERIAL_CHECK_BOXES, oneHot);
 
+  // Timestamp. Early new-code machines (C754 era, ~2012-2016) embed the print
+  // date; every later sample leaves these boxes at 5 (unset reads day 35).
+  // Day and month are verified against the two paper-dated C754 prints
+  // (PUB-0004: 7 Feb 2018, PUB-0005: 28 May 2015); the year is a single digit
+  // = year mod 6 (2010 = 0), which is why it spans only a 6-year window. The
+  // day pair's hi/lo order is untestable so far (both known samples read
+  // doubled digits); [25,24] keeps the old-code hour pair's wiring.
+  const readPair = (hi, lo) => (oneHot[hi] == null || oneHot[lo] == null)
+    ? null : konicaPairToDecimal(oneHot[hi], oneHot[lo]);
+  const tDay = readPair(25, 24);
+  const tMonth = readPair(4, 26);
+  const timeSet = tDay != null && tMonth != null
+    && tDay >= 1 && tDay <= 31 && tMonth >= 1 && tMonth <= 12;
+  const time = {
+    set: timeSet,
+    day: timeSet ? tDay : null,
+    month: timeSet ? tMonth : null,
+    yearMod6: timeSet ? (oneHot[5] ?? null) : null,
+  };
+
   return {
+    time,
     serial: {
       full, seriesModel, series, model: modelChars,
       brand: { digit: brandDigit, name: brandDigit == null ? null : (KONICA_BRANDS[brandDigit] ?? 'Unknown') },
