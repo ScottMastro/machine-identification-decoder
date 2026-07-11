@@ -32,6 +32,19 @@ h1 {
 
 .container { max-width: 1100px; margin: 0 auto; }
 
+.site-disclaimer {
+  background: #12192f;
+  border: 1px solid #0f3460;
+  border-left: 3px solid #f0c040;
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: #9aa0b5;
+  text-align: center;
+}
+.site-disclaimer i { color: #f0c040; margin-right: 0.35rem; }
+
 .panel {
   background: #16213e;
   border-radius: 12px;
@@ -618,6 +631,35 @@ input[type="file"] { display: none; }
 .parity-ok { color: #4caf50; }
 .parity-err { color: #e94560; }
 
+/* Checksum (Parity) rows: summed boxes (full mini-blocks) = sum, mod 6 = x,
+   then the actual check box, then the pass/fail mark. */
+.kck-item { padding: 0.5rem 0 !important; }
+.kck-label {
+  display: block;
+  color: #8a93b5;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.3rem;
+}
+.kck-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.kck-sum {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+}
+.kck-op { color: #8a93b5; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.kck-total { font-weight: 700; color: #f0c040; font-size: 1.05rem; }
+.kck-exp { color: #e0e0e0; font-size: 0.9rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.kck-exp b { color: #f0c040; }
+.kck-arrow { color: #8a93b5; }
+
 /* Column reference table */
 table.ref-table {
   width: 100%;
@@ -817,3 +859,12 @@ table.ref-table tr.unused-row td { color: #555; }
 .kcy-swatch { width: 0.7rem; height: 0.7rem; border-radius: 3px; }
 .kcy-swatch.letter { background: #e6a94d; }
 .kcy-swatch.digit  { background: #4fb8ac; }
+
+.kcy-batch { margin-top: 1.1rem; padding-top: 0.9rem; border-top: 1px solid #0f3460; }
+.kcy-batch h4 { font-size: 0.82rem; color: #b48ad6; letter-spacing: 0.02em; margin-bottom: 0.35rem; }
+.kcy-batch .kmodal-sub { margin-bottom: 0.5rem; }
+.kcy-example {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.78rem; color: #9aa0b8;
+}
+.kcy-example b { color: #4fb8ac; }

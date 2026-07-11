@@ -83,6 +83,11 @@
   <div id="tab-konica" class="tab-content" style="display:none">
     <div class="app-header">
       <h1>Konica Minolta Machine Identification Code Decoder</h1>
+      <div class="site-disclaimer">
+        <i class="fa-solid fa-flask"></i>
+        For research purposes only &mdash; no guarantee of accuracy. Decodings are a best-effort
+        interpretation of the dot patterns and may be incomplete or wrong.
+      </div>
       <hr class="header-rule">
       <div class="controls">
         <button class="btn-danger" onclick="clearKonica()"><i class="fa-solid fa-trash-can"></i> Clear</button>
@@ -138,6 +143,16 @@
         <div class="kcy-legend">
           <span><span class="kcy-swatch letter"></span> letter</span>
           <span><span class="kcy-swatch digit"></span> digit</span>
+        </div>
+        <div class="kcy-batch">
+          <h4>Batch &amp; number &mdash; base&#8209;6, no cypher</h4>
+          <p class="kmodal-sub">The batch &amp; number field skips the table entirely: its seven
+          boxes (19, 20, 12, 13, 14, 8, 9 &mdash; most significant first) are read as one 7-digit
+          base-6 number, converted to decimal, and zero-padded to six digits &mdash; first three =
+          batch, last three = unit number.</p>
+          <p class="kmodal-sub kcy-example">Example: digits 0&thinsp;0&thinsp;1&thinsp;5&thinsp;1&thinsp;4&thinsp;5
+          &rarr; 0015145<sub>6</sub> = 1&times;6<sup>4</sup> + 5&times;6<sup>3</sup> + 1&times;6<sup>2</sup>
+          + 4&times;6 + 5 = 2441 &rarr; <b>002&thinsp;441</b> (batch 002, number 441).</p>
         </div>
       </div>
     </div>

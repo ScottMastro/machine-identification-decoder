@@ -181,8 +181,12 @@ const KONICA_REGIONS = {
 
 // Checksum boxes: box 28 checks the model, box 29 checks the serial. The
 // expected value is (6 - (sum % 6)) % 6 over the summed box values.
+// Box 16 is a deviation from Donovan's box list: every sample he had kept
+// box 16 at 0, so he couldn't tell whether it was summed. DOC-0009 (the only
+// known sample with box16 != 0) fails the serial check without it and passes
+// with it.
 const KONICA_MODEL_CHECK_BOXES = [2, 3, 7, 10, 11, 15];
-const KONICA_SERIAL_CHECK_BOXES = [8, 9, 12, 13, 14, 17, 18, 19, 20, 21, 22, 23, 27];
+const KONICA_SERIAL_CHECK_BOXES = [8, 9, 12, 13, 14, 16, 17, 18, 19, 20, 21, 22, 23, 27];
 
 // Serial-model code (+ sub-model) -> actual printer. From the model table at
 // the end of the reference PDF. The release year is the earliest a document
@@ -250,6 +254,8 @@ const KONICA_NEW_MODELS = [
   { serial: 'A92F', sub: 1, make: 'bizhub', model: 'C3351', color: 'Color', year: '3/2017' },
   { serial: 'A92G', sub: 1, make: 'bizhub', model: 'C3851FS', color: 'Color', year: '3/2017' },
   { serial: 'A93E', sub: 1, make: 'bizhub', model: 'C3350i', color: 'Color', year: '6/2019' },
+  // Not in Donovan's table; established by dataset sample DOC-0006 (label-verified).
+  { serial: 'A93E', sub: 7, make: 'bizhub', model: 'C3351i', color: 'Color', year: '6/2019' },
   { serial: 'A9HG', sub: 1, make: 'bizhub', model: '558i', color: 'BW', year: '2/2017' },
   { serial: 'A9HH', sub: 1, make: 'bizhub', model: '458i', color: 'BW', year: '2/2017' },
   { serial: 'AA1P', sub: 1, make: 'bizhub', model: '4752', color: 'BW', year: '7/2018' },
@@ -311,16 +317,15 @@ function konicaCypherDigit(hiBox, loBox, oneHot) {
   return ch !== null && /^[0-9]$/.test(ch) ? Number(ch) : null;
 }
 
-// Brand: box 27 combined with any of the always-5 boxes.
+// Brand: box 27 is the hi digit. The lo digit lives in ONE of the always-5
+// boxes (4, 5, 23-26), but which one is unidentifiable while every known
+// sample is brand Konica ('0' = pair 1,5 — they all read 5). Until a
+// non-Konica sample reveals the real box, the lo digit is hardcoded to 5
+// rather than pretending to read a specific box.
 function konicaBrandDigit(oneHot) {
   if (oneHot[27] == null) return null;
-  for (const lo of [4, 5, 23, 24, 25, 26]) {
-    if (oneHot[lo] != null) {
-      const ch = KONICA_CYPHER[oneHot[27] * 10 + oneHot[lo]];
-      return ch !== undefined && /^[0-9]$/.test(ch) ? Number(ch) : null;
-    }
-  }
-  return null;
+  const ch = KONICA_CYPHER[oneHot[27] * 10 + 5];
+  return ch !== undefined && /^[0-9]$/.test(ch) ? Number(ch) : null;
 }
 
 // Look up the printer by its 4-char serial-model code and sub-model.
@@ -350,7 +355,10 @@ function decodeKonicaNewCode(oneHot) {
 
   const brandDigit = konicaBrandDigit(oneHot);
   const regionDigit = konicaCypherDigit(22, 21, oneHot);
-  const subModel = konicaCypherDigit(17, 18, oneHot);
+  // Sub-model is [17,16], not Donovan's [17,18]: indistinguishable on his
+  // samples (boxes 16 and 18 both always 0), but DOC-0009 has box16=2 and its
+  // label sub-model digit 3 = cypher(2,2) only fits [17,16].
+  const subModel = konicaCypherDigit(17, 16, oneHot);
 
   // Batch & number: seven blocks read as one base-6 number, then base-10.
   const bnBoxes = [19, 20, 12, 13, 14, 8, 9];

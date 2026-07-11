@@ -75,6 +75,13 @@ const KONICA_MODE_HINTS = {
   new: 'Full serial number, brand, region &amp; model. Used by printers made ~2013+.',
 };
 
+// Pseudo-box id for the brand's low digit. The real box is ONE of the always-5
+// boxes (4, 5, 23-26) but is unidentifiable while every known sample is brand
+// Konica ('0' = pair 1,5 — they all read 5). Rendered as a "?" mini-block whose
+// value is fixed to 5; replace with the real box id once a non-Konica sample
+// reveals it.
+const KONICA_BRAND_LO = '?';
+
 // What each box means under each scheme, used to color the rectangles/mini-
 // blocks and to build the legend. Order here is the legend order. Every box
 // 0-29 is assigned exactly one category per mode.
@@ -83,18 +90,16 @@ const KONICA_FIELD_CATEGORIES = {
     { key: 'serial',   label: 'Series &amp; model', boxes: [2, 3, 7, 10, 11, 15] },
     { key: 'brand',    label: 'Brand',              boxes: [27] },
     { key: 'region',   label: 'Region',             boxes: [21, 22] },
-    { key: 'submodel', label: 'Sub-model',          boxes: [17, 18] },
+    { key: 'submodel', label: 'Sub-model',          boxes: [17, 16] },
     { key: 'batchnum', label: 'Batch &amp; number', boxes: [8, 9, 12, 13, 14, 19, 20] },
     { key: 'checksum', label: 'Checksum',           boxes: [28, 29] },
-    { key: 'constant', label: 'Constant',           boxes: [0, 4, 5, 16, 23, 24, 25, 26] },
-    { key: 'spacer',   label: 'Spacer',             boxes: [1, 6] },
+    { key: 'constant', label: 'Constant',           boxes: [0, 1, 4, 5, 6, 18, 23, 24, 25, 26] },
   ],
   old: [
     { key: 'model',    label: 'Model code',         boxes: [2, 3, 7] },
     { key: 'time',     label: 'Timestamp',          boxes: [4, 5, 10, 11, 15, 24, 25, 26] },
     { key: 'parity',   label: 'Parity (mirrored)',  boxes: [8, 9, 12, 13, 14, 16, 17, 18, 19, 20, 21, 22, 23, 27, 28, 29] },
-    { key: 'constant', label: 'Constant',           boxes: [0] },
-    { key: 'spacer',   label: 'Spacer',             boxes: [1, 6] },
+    { key: 'constant', label: 'Constant',           boxes: [0, 1, 6] },
   ],
 };
 
@@ -111,15 +116,22 @@ const KONICA_FIELD_CATEGORIES = {
 const KONICA_SECTIONS = {
   new: [
     { key: 'serial', label: 'Series &amp; model', note:
-        'Implicit leading &ldquo;A&rdquo;; each later character = two boxes read as a '
-        + 'decimal key, then looked up in the cypher.', parts: [
+        'Each character = two boxes read as a decimal key, then looked up in the cypher. '
+        + 'Every serial also starts with a fixed &ldquo;A&rdquo; that isn&rsquo;t encoded in the '
+        + 'dots, so it&rsquo;s dropped here (but kept in the full serial above).', parts: [
       { boxes: [7, 3],  conv: 'cypher', label: '2nd char' },
       { boxes: [2, 15], conv: 'cypher', label: '3rd char' },
       { boxes: [11, 10], conv: 'cypher', label: '4th char' },
     ] },
-    { key: 'brand',    label: 'Brand',     parts: [{ boxes: [27, 4],  conv: 'cypher', label: 'brand' }] },
+    { key: 'brand',    label: 'Brand', note:
+        'Box&nbsp;27 is the high digit. The low digit is <em>one of</em> the always-5 boxes '
+        + '(4, 5, 23&ndash;26) &mdash; every known sample is brand Konica (&ldquo;0&rdquo; = pair 1,5), so '
+        + 'all six read 5 and the real box can&rsquo;t be identified yet. Shown as &ldquo;?&rdquo; with '
+        + 'its value fixed to 5 until a non-Konica sample settles it.', parts: [
+      { boxes: [27, KONICA_BRAND_LO], conv: 'cypher', label: 'brand' },
+    ] },
     { key: 'region',   label: 'Region',    parts: [{ boxes: [22, 21], conv: 'cypher', label: 'region' }] },
-    { key: 'submodel', label: 'Sub-model', parts: [{ boxes: [17, 18], conv: 'cypher', label: 'sub-model' }] },
+    { key: 'submodel', label: 'Sub-model', parts: [{ boxes: [17, 16], conv: 'cypher', label: 'sub-model' }] },
     { key: 'batchnum', label: 'Batch &amp; number', note:
         'Seven boxes read as one base-6 number &rarr; base-10, padded to 6 digits: '
         + 'first three = batch, last three = number.', parts: [
@@ -127,12 +139,11 @@ const KONICA_SECTIONS = {
     ] },
     { key: 'checksum', label: 'Checksum', note:
         'Box&nbsp;28 checks the model boxes (2,3,7,10,11,15); box&nbsp;29 checks the serial '
-        + 'boxes (8,9,12,13,14,17,18,19,20,21,22,23,27). Each = (6 &minus; &Sigma; mod 6) mod 6.', parts: [
+        + 'boxes (8,9,12,13,14,16,17,18,19,20,21,22,?,27). Each = (6 &minus; &Sigma; mod 6) mod 6.', parts: [
       { boxes: [28], conv: 'none', label: 'model check' },
       { boxes: [29], conv: 'none', label: 'serial check' },
     ] },
-    { key: 'constant', label: 'Constant', parts: [{ boxes: [0, 4, 5, 16, 23, 24, 25, 26], conv: 'none' }] },
-    { key: 'spacer',   label: 'Spacer',   parts: [{ boxes: [1, 6], conv: 'none' }] },
+    { key: 'constant', label: 'Constant', parts: [{ boxes: [0, 1, 4, 5, 6, 18, 23, 24, 25, 26], conv: 'none' }] },
   ],
   old: [
     { key: 'model', label: 'Model code', note:
@@ -154,8 +165,7 @@ const KONICA_SECTIONS = {
       { boxes: [9, 29],  conv: 'mirror' }, { boxes: [20, 21], conv: 'mirror' },
       { boxes: [12, 22], conv: 'mirror' }, { boxes: [13, 23], conv: 'mirror' },
     ] },
-    { key: 'constant', label: 'Constant', parts: [{ boxes: [0], conv: 'none' }] },
-    { key: 'spacer',   label: 'Spacer',   parts: [{ boxes: [1, 6], conv: 'none' }] },
+    { key: 'constant', label: 'Constant', parts: [{ boxes: [0, 1, 6], conv: 'none' }] },
   ],
 };
 
@@ -166,18 +176,20 @@ const KONICA_SECTIONS = {
 // resolved chunk from the decoded serial. Batch & number share one base-6
 // value across the same seven boxes, so they stay a single column.
 const KONICA_SERIAL_ROW = [
-  { cat: 'serial',   label: 'Series',           boxes: [7, 3],                      value: s => s.series,
+  { cat: 'serial',   label: 'Series',           boxes: [7, 3],                      value: s => s.series.slice(1),
     meaning: () => null },
   { cat: 'serial',   label: 'Model',            boxes: [2, 15, 11, 10],             value: s => s.model,
     meaning: (s, nc) => nc.model ? nc.model.make + ' ' + nc.model.model : null },
-  { cat: 'brand',    label: 'Brand',            boxes: [27, 4],                     value: s => s.brand.digit,
+  { cat: 'brand',    label: 'Brand',            boxes: [27, KONICA_BRAND_LO],       value: s => s.brand.digit,
     meaning: s => s.brand.name },
   { cat: 'region',   label: 'Region',           boxes: [22, 21],                    value: s => s.region.digit,
     meaning: s => s.region.name },
-  { cat: 'submodel', label: 'Sub-model',        boxes: [17, 18],                    value: s => s.subModel,
+  { cat: 'submodel', label: 'Sub-model',        boxes: [17, 16],                    value: s => s.subModel,
     meaning: () => null },
-  { cat: 'batchnum', label: 'Batch &amp; number', boxes: [19, 20, 12, 13, 14, 8, 9], value: s => s.batchNumber,
-    meaning: s => s.batch == null ? null : 'batch ' + s.batch + ' &middot; unit ' + s.number },
+  { cat: 'batchnum', label: 'Batch',            boxes: [19, 20, 12],                value: s => s.batch,
+    meaning: () => null },
+  { cat: 'batchnum', label: 'Number',           boxes: [13, 14, 8, 9],              value: s => s.number,
+    meaning: () => null },
 ];
 
 // Box id -> category key for the active scheme.
@@ -313,6 +325,7 @@ function renderKonicaBoard() {
 // The base-6 digit currently in a box (box 0 is the marker anchor, always 0;
 // null = empty box).
 function konicaDigit(id) {
+  if (id === KONICA_BRAND_LO) return 5; // unidentified always-5 box (see KONICA_BRAND_LO)
   if (id === 0) return 0;
   return id in konicaBoxValues ? konicaBoxValues[id] : null;
 }
@@ -324,11 +337,16 @@ function konicaDigit(id) {
 function konicaMiniBlock(id, forceColor) {
   const catMap = konicaCategoryMap(konicaCodeType);
   const val = konicaDigit(id);
-  const raw = catMap[id] || 'default';
+  const raw = id === KONICA_BRAND_LO ? 'brand' : (catMap[id] || 'default');
   const cls = forceColor ? raw : konicaShownCat(raw);
 
   const block = document.createElement('div');
   block.className = 'kblock kblock-' + cls;
+  if (id === KONICA_BRAND_LO) {
+    block.title = 'One of the always-5 boxes (4, 5, 23–26). Which one carries the '
+      + 'brand’s low digit is unknown — value fixed to 5 until a non-Konica '
+      + 'sample identifies it.';
+  }
 
   const head = document.createElement('div');
   head.className = 'kblock-id';
@@ -424,7 +442,7 @@ function konicaSectionSummary(key, oneHot) {
   if (konicaCodeType === 'new') {
     const s = decodeKonicaNewCode(oneHot).serial;
     switch (key) {
-      case 'serial':   return s.seriesModel;
+      case 'serial':   return s.seriesModel.slice(1); // drop the implicit leading "A" (not dot-encoded)
       case 'brand':    return s.brand.digit == null ? null : s.brand.digit + ' &middot; ' + s.brand.name;
       case 'region':   return s.region.digit == null ? null : s.region.digit + ' &middot; ' + s.region.name;
       case 'submodel': return s.subModel == null ? null : String(s.subModel);
@@ -527,16 +545,33 @@ function konicaSubsection(title, itemsHTML) {
   return frag;
 }
 
-// One checksum result line: read X, expected Y, OK / mismatch.
-function konicaChecksumLine(label, c, box) {
+// One checksum row: the boxes being summed (with their values), the expected
+// check digit that sum produces, the value actually read from the check box,
+// and a check / cross. `checkBoxes` are the data boxes summed; `checkBox` is
+// the box that stores the resulting digit.
+function konicaChecksumRow(label, checkBoxes, checkBox, c, oneHot) {
   if (c.expected == null || c.actual == null) {
-    return '<li class="muted">' + label + ' (box ' + box + '): not enough dots to verify</li>';
+    return '<li class="muted">' + label + ' (box ' + checkBox + '): not enough dots to verify</li>';
   }
+  const sum = checkBoxes.reduce((a, b) => a + (b === KONICA_BRAND_LO ? konicaDigit(b) : oneHot[b]), 0);
+  // Each summed box as a full mini-block, just like the serial strip above.
+  const terms = checkBoxes.map(b => konicaMiniBlock(b, true).outerHTML)
+    .join('<span class="kck-op">+</span>');
   const tag = c.ok
-    ? '<span class="parity-ok">&#10003; OK</span>'
-    : '<span class="parity-err">&#10007; mismatch</span>';
-  return '<li>' + label + ' (box ' + box + '): read ' + c.actual
-    + ', expected ' + c.expected + ' ' + tag + '</li>';
+    ? '<span class="parity-ok">&#10003;</span>'
+    : '<span class="parity-err">&#10007;</span>';
+  // The check box itself, also a mini-block, shown to the right of the result.
+  const checkBlock = konicaMiniBlock(checkBox, true).outerHTML;
+  return '<li class="kck-item">'
+    + '<div class="kck-label">' + label + '</div>'
+    + '<div class="kck-row">'
+    + '<span class="kck-sum">' + terms
+    + '<span class="kck-op">=</span><span class="kck-total">' + sum + '</span></span>'
+    + '<span class="kck-exp">mod 6 = <b>' + c.expected + '</b></span>'
+    + '<span class="kck-arrow">&rarr;</span>' + checkBlock
+    + tag
+    + '</div>'
+    + '</li>';
 }
 
 // One field-by-field box (mini-blocks + conversions + resolved value). Always
@@ -596,9 +631,26 @@ function renderKonicaDecodedNew(host, oneHot) {
   const nc = decodeKonicaNewCode(oneHot);
   host.appendChild(konicaDecodedBar([{ label: 'Serial number', value: nc.serial.full }]));
   host.appendChild(renderKonicaSerialStrip(oneHot));
-  host.appendChild(konicaSubsection('Checksum',
-    konicaChecksumLine('Model check', nc.checksum.model, 28)
-    + konicaChecksumLine('Serial check', nc.checksum.serial, 29)));
+  const brandNote = document.createElement('div');
+  brandNote.className = 'kfield-note';
+  brandNote.innerHTML = 'The &ldquo;?&rdquo; box: the brand&rsquo;s second digit sits in one of the '
+    + 'constant-5 boxes (4, 5, 23&ndash;26), but every known sample reads 5 there, so which '
+    + 'box it is can&rsquo;t be determined yet.';
+  host.appendChild(brandNote);
+  // The serial sum is displayed with the "?" pseudo-box in place of box 23:
+  // the checksum arithmetic proves exactly one always-5 box is summed, but not
+  // which one (the decoder uses 23 for the math; the value is 5 either way).
+  const serialCheckDisplay = KONICA_SERIAL_CHECK_BOXES.map(b => b === 23 ? KONICA_BRAND_LO : b);
+  host.appendChild(konicaSubsection('Checksum (Parity)',
+    konicaChecksumRow('Model check', KONICA_MODEL_CHECK_BOXES, 28, nc.checksum.model, oneHot)
+    + konicaChecksumRow('Serial check', serialCheckDisplay, 29, nc.checksum.serial, oneHot)));
+  const checkNote = document.createElement('div');
+  checkNote.className = 'kfield-note';
+  checkNote.innerHTML = 'Two boxes in the serial sum are provisional: the &ldquo;?&rdquo; box &mdash; the '
+    + 'checksum provably includes exactly one of the always-5 boxes (4, 5, 23&ndash;26), most '
+    + 'likely the brand&rsquo;s low digit, but which one is unknown &mdash; and box&nbsp;18, always 0 '
+    + 'in every known sample with an unknown role, kept in the sum where a 0 changes nothing.';
+  host.appendChild(checkNote);
 }
 
 // Old scheme: model code up top, likely printer, then Date and Parity sections.
@@ -730,65 +782,23 @@ function clearKonica() {
   runKonicaDecode();
 }
 
-// A short, human-decoded caption line for the exported image.
-function konicaExportCaption() {
-  const oneHot = konicaCurrentOneHot();
-  if (konicaCodeType === 'new') {
-    const full = decodeKonicaNewCode(oneHot).serial.full;
-    return 'Serial ' + full;
-  }
-  const m = decodeKonicaModelCode(oneHot);
-  const bits = [];
-  if (m.code) bits.push('Model code ' + m.code);
-  if (m.year) bits.push(String(m.year));
-  if (m.models && m.models.length) bits.push(m.models.join(' / '));
-  return bits.join(' · ') || 'Old code';
-}
-
 // The current 16x24 dot matrix as CSV text — the exact format loadKonicaFile /
 // onKonicaSampleSelect parse back in, so a saved grid is round-trippable.
 function konicaGridToText() {
   return konicaMatrix.map(row => row.join(',')).join('\n');
 }
 
-// Render the current dot pattern (board as shown) to a captioned PNG blob. A
-// clone of the board is used so the live DOM / parity / hover state is never
-// disturbed. Returns null if html2canvas is unavailable or rendering fails.
-async function makeKonicaScreenshotBlob() {
-  const board = document.getElementById('konica-board');
-  if (!board || typeof html2canvas !== 'function') return null;
-
-  const meta = currentKonicaSampleName ? (konicaSampleMeta[currentKonicaSampleName] || null) : null;
-  const titleBits = [];
-  if (meta && meta.device) titleBits.push(meta.device);
-  if (meta && meta.model) titleBits.push(meta.model);
-  const title = titleBits.join('  ·  ') || (currentKonicaSampleName || 'Konica dot pattern');
-  const sub = meta && meta.source ? String(meta.source) : '';
-  const caption = konicaExportCaption();
-
-  const wrap = document.createElement('div');
-  wrap.style.cssText = 'position:fixed; left:-99999px; top:0; display:inline-block; '
-    + 'background:#16213e; padding:20px 22px; border-radius:10px; '
-    + "font-family:-apple-system,Segoe UI,Roboto,sans-serif;";
-  const head = document.createElement('div');
-  head.style.cssText = 'margin-bottom:14px; max-width:520px;';
-  head.innerHTML =
-    '<div style="font-size:16px; font-weight:700; color:#f0c040;">' + konicaEscapeHtml(title) + '</div>'
-    + (sub ? '<div style="font-size:11px; color:#8a93b5; margin-top:3px;">' + konicaEscapeHtml(sub) + '</div>' : '')
-    + '<div style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:13px; '
-    + 'color:#e0e0e0; margin-top:6px; letter-spacing:.02em;">' + konicaEscapeHtml(caption) + '</div>';
-  wrap.appendChild(head);
-  wrap.appendChild(board.cloneNode(true));
-  document.body.appendChild(wrap);
-  try {
-    const canvas = await html2canvas(wrap, { backgroundColor: '#16213e', scale: 2 });
-    return await new Promise(res => canvas.toBlob(res, 'image/png'));
-  } catch (err) {
-    console.error('Konica screenshot failed:', err);
-    return null;
-  } finally {
-    wrap.remove();
+// The 30 decode rectangles as CSV: box index -> base-6 value (0..5), or -1 when
+// the box holds no dot. Just the raw per-rectangle values, no interpretation,
+// so it can be the substrate for analysing what each means.
+function konicaBoxesToText() {
+  const oneHot = konicaCurrentOneHot();
+  const lines = ['box,value'];
+  for (let id = 0; id < 30; id++) {
+    const v = oneHot[id];
+    lines.push(id + ',' + (v == null ? -1 : v));
   }
+  return lines.join('\n');
 }
 
 // The plain black/white grid render, matching the archived select_dots.py
@@ -840,15 +850,15 @@ async function saveKonica() {
   const prefix = name || 'konica_mic';
 
   const txtBlob = new Blob([konicaGridToText()], { type: 'text/plain' });
-  const pngBlob = await makeKonicaScreenshotBlob();   // captioned colored board
-  const gridBlob = await makeKonicaGridImageBlob();   // plain b/w grid view
+  const boxesBlob = new Blob([konicaBoxesToText()], { type: 'text/plain' });
+  const pngBlob = await makeKonicaGridImageBlob();     // plain b/w grid image
 
   // Download straight to the browser's download folder. The File System Access
   // directory picker is deliberately avoided: Chrome blocks "system" folders
   // (including the localhost project dir), which just fails the save.
   downloadBlob(txtBlob, prefix + '.txt');
+  downloadBlob(boxesBlob, prefix + '.boxes.txt');
   if (pngBlob) downloadBlob(pngBlob, prefix + '.png');
-  if (gridBlob) downloadBlob(gridBlob, prefix + '.grid.png');
 }
 
 function downloadBlob(blob, filename) {
