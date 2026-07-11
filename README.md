@@ -1,28 +1,31 @@
-# Xerox Machine Identification Code Decoder
+# Machine Identification Code Decoder
 
-A web-based tool for decoding [Machine Identification Codes](https://en.wikipedia.org/wiki/Machine_Identification_Code) (MIC) — the invisible yellow dot patterns printed by color laser printers on every page. Based on [EFF research](https://w2.eff.org/Privacy/printers/docucolor/) on the Xerox DocuColor tracking dot system.
+A web-based tool for decoding [Machine Identification Codes](https://en.wikipedia.org/wiki/Machine_Identification_Code) (MIC) — the nearly invisible yellow dot patterns color laser printers embed on every page. Supports both the **Xerox** DocuColor scheme and the **Konica Minolta** dot-block scheme.
 
 ## What are Machine Identification Codes?
 
-Most color laser printers embed a nearly invisible pattern of tiny yellow dots on every printed page. This pattern encodes the printer's serial number, and the date and time the page was printed. The dots are arranged in a repeating 8-row by 15-column grid.
+Most color laser printers embed a nearly invisible pattern of tiny yellow dots on every printed page, encoding identifying information such as the printer's serial number and the date and time the page was printed. Different manufacturers lay the dots out differently:
 
-This tool decodes that grid to reveal the embedded information.
+- **Xerox / DocuColor** — an 8-row by 15-column grid encoding the serial number, date, and time. Based on [EFF research](https://w2.eff.org/Privacy/printers/docucolor/).
+- **Konica Minolta** — thirty one-hot base-6 "blocks" on a 16×24 grid encoding the model / serial number (and, on older models, a print timestamp).
+
+This tool decodes those patterns to reveal the embedded information.
 
 ## Features
 
-### Decoder
-- Interactive 8x15 dot grid — click to toggle dots on/off
+### Xerox decoder
+- Interactive 8×15 dot grid — click to toggle dots, in a labeled **Dots** view or a tight **Grid** view
 - Live decoding of serial number, date, and time as you edit
-- Parity checking with visual indicators (green/red borders on parity dots)
-- Load/save grid data as `.txt` files (CSV format)
-- Export grid + decoded info as `.png` screenshot
+- Parity checking with visual indicators (green/red on parity dots)
+- Load/save grid data as `.txt` files (CSV format); export grid + decoded info as `.png`
 - Column reference table explaining the encoding scheme
 
-### Calendar View
-- Batch upload multiple grid files at once
-- Full-year calendar visualization showing which days had prints
-- Click any highlighted day to see a detail table of prints (filename, serial, time)
-- Year navigation with prev/next controls
+### Konica Minolta decoder
+- Interactive 16×24 board with a **Blocks** view (one dot per 3×2 block) or a tight **Grid** view
+- Live decode of the full serial number — series, model, brand, region, sub-model, batch/number — plus checksum verification
+- Handles both the **Old code** (model number + timestamp) and **New code** (full serial number) schemes
+- A **Blocks by field** breakdown grouping the boxes into their decoded fields and showing the base-6 → base-10 / cypher translation for each
+- Optional sample library for quick loading (see below)
 
 ## Setup
 
@@ -35,12 +38,9 @@ python -m http.server 8000
 
 Then visit `http://localhost:8000`.
 
-The **Calendar** tab is hidden by default. Add `?calendar` to the URL to
-show it (e.g. `http://localhost:8000/?calendar`).
-
-Open a specific tab directly with `?tab=xerox|konica|calendar` (or the matching
-`#hash`, e.g. `#konica`). Whichever tab you click is also written to the URL, so
-a refresh keeps you on it.
+Open a specific tab directly with `?tab=xerox|konica` (or the matching `#hash`,
+e.g. `#konica`). Whichever tab you click is also written to the URL, so a
+refresh keeps you on it.
 
 ### Konica sample library
 
@@ -71,7 +71,7 @@ you can drop a file in without editing `meta.txt`.
 ### Project layout
 
 ```
-index.html            markup for all three tabs
+index.html            markup for both decoder tabs
 static/css/style.css  all styles
 static/js/
   xerox-decode.js     Xerox MIC decoding algorithm (single source of truth)
@@ -80,12 +80,12 @@ static/js/
   konica-decode.js    Konica Minolta decoding algorithm (single source of truth)
   konica.js           interactive one-hot base-6 block board
   samples.js          optional samples/ dropdown loader for the Konica tab
-  calendar.js         Print Activity Calendar
-  app.js              tab switching, calendar flag, bootstrap
+  app.js              tab switching + bootstrap
 samples/              gitignored: decoded dot .txt files + optional meta.txt
+archive/              archived Konica research scripts (see archive/konika-scripts/)
 ```
 
-## Grid Format
+## Xerox grid format
 
 Grid files are plain text CSV — 8 rows of 15 comma-separated values (0 or 1):
 
@@ -95,7 +95,7 @@ Grid files are plain text CSV — 8 rows of 15 comma-separated values (0 or 1):
 ...
 ```
 
-## Column Mapping
+### Column mapping
 
 | Column | Field | Description |
 |--------|-------|-------------|
@@ -117,3 +117,4 @@ Row 1 is a parity row. Each column's 7 data bits (rows 2–8) encode a value, MS
 
 - [EFF DocuColor Tracking Dots](https://w2.eff.org/Privacy/printers/docucolor/)
 - [Machine Identification Code — Wikipedia](https://en.wikipedia.org/wiki/Machine_Identification_Code)
+- "Deciphering the Konica Minolta MIC Dots" (Donovan R.) — basis for the Konica decoder
