@@ -38,6 +38,36 @@ Then visit `http://localhost:8000`.
 The **Calendar** tab is hidden by default. Add `?calendar` to the URL to
 show it (e.g. `http://localhost:8000/?calendar`).
 
+Open a specific tab directly with `?tab=xerox|konica|calendar` (or the matching
+`#hash`, e.g. `#konica`). Whichever tab you click is also written to the URL, so
+a refresh keeps you on it.
+
+### Konica sample library
+
+Create a `samples/` directory (gitignored) and drop decoded 16×24 dot `.txt`
+files into it. When the site is served over HTTP, the Konica tab shows a
+**sample dropdown** listing them; empty (or opened via `file://`, where `fetch`
+is blocked) means no dropdown.
+
+An optional `samples/meta.txt` (JSON) attaches info to each file. It can be a
+map keyed by filename, an array of `{name, ...}`, or `{"files": [...]}`:
+
+```json
+{
+  "bizhub_c250i.txt": {
+    "label": "Bizhub C250i",
+    "codeType": "new",
+    "expectedSerial": "AA2M021002826",
+    "source": "Reference PDF worked example"
+  }
+}
+```
+
+`label` shows next to the filename; `codeType` (`old`/`new`) auto-selects the
+decode mode on load; any other keys render as an info line under the board.
+Files are discovered from `meta.txt` **and** the server's directory listing, so
+you can drop a file in without editing `meta.txt`.
+
 ### Project layout
 
 ```
@@ -49,8 +79,10 @@ static/js/
   fileio.js           load / save / PNG export (client-side)
   konica-decode.js    Konica Minolta decoding algorithm (single source of truth)
   konica.js           interactive one-hot base-6 block board
+  samples.js          optional samples/ dropdown loader for the Konica tab
   calendar.js         Print Activity Calendar
   app.js              tab switching, calendar flag, bootstrap
+samples/              gitignored: decoded dot .txt files + optional meta.txt
 ```
 
 ## Grid Format

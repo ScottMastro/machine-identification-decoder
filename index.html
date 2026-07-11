@@ -4,33 +4,38 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Xerox Machine Identification Code Decoder</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <link rel="stylesheet" href="static/css/style.css">
 </head>
 <body>
 <div class="container">
-  <div class="tab-bar">
-    <button class="tab-btn active" data-tab="xerox" onclick="switchTab('xerox')">Xerox</button>
-    <button class="tab-btn" data-tab="konica" onclick="switchTab('konica')">Konica Minolta</button>
-    <button class="tab-btn tab-right" data-tab="calendar" onclick="switchTab('calendar')">Calendar</button>
+  <div class="decoder-switch">
+    <button class="decoder-btn active" data-tab="xerox" onclick="switchTab('xerox')">Xerox</button>
+    <button class="decoder-btn" data-tab="konica" onclick="switchTab('konica')">Konica Minolta</button>
+    <button class="decoder-btn" data-tab="calendar" onclick="switchTab('calendar')">Calendar</button>
   </div>
 
   <div id="tab-xerox" class="tab-content">
   <div class="app-header">
     <h1>Xerox Machine Identification Code Decoder</h1>
+    <hr class="header-rule">
+    <div class="controls">
+      <button class="btn-danger" onclick="clearGrid()"><i class="fa-solid fa-trash-can"></i> Clear</button>
+      <button class="btn-secondary" onclick="saveAll()"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+      <label class="file-label" for="file-upload"><i class="fa-solid fa-upload"></i> Load</label>
+      <input type="file" id="file-upload" accept=".txt,.csv" onchange="loadFile(event)">
+      <span id="upload-status" style="color:#888;font-size:0.8rem;"></span>
+    </div>
   </div>
   <div class="panel">
-    <div class="top-bar">
-      <h2>Dot Grid (8 rows &times; 15 columns)</h2>
-      <div class="controls">
-        <button class="btn-danger" onclick="clearGrid()">Clear</button>
-        <button class="btn-secondary" onclick="saveAll()">Save</button>
-        <label class="file-label" for="file-upload">Load</label>
-        <input type="file" id="file-upload" accept=".txt,.csv" onchange="loadFile(event)">
-        <span id="upload-status" style="color:#888;font-size:0.8rem;"></span>
-      </div>
+    <h2>Dot Grid (8 rows &times; 15 columns)</h2>
+    <div class="tab-bar view-tabs" id="xerox-view-toggle">
+      <button type="button" class="tab-btn active" data-view="dots" onclick="setXeroxView('dots')">Dots</button>
+      <button type="button" class="tab-btn" data-view="grid" onclick="setXeroxView('grid')">Grid</button>
     </div>
     <div class="grid-wrapper">
       <table class="mic-grid" id="mic-grid"></table>
+      <div class="xerox-board" id="xerox-board" style="display:none"></div>
     </div>
     <div class="decoded-bar" id="decoded-bar">
       <div class="decoded-field">
@@ -79,6 +84,15 @@
   <div id="tab-konica" class="tab-content" style="display:none">
     <div class="app-header">
       <h1>Konica Minolta Machine Identification Code Decoder</h1>
+      <hr class="header-rule">
+      <div class="controls">
+        <button class="btn-danger" onclick="clearKonica()"><i class="fa-solid fa-trash-can"></i> Clear</button>
+        <span class="konica-samples-wrap" id="konica-samples-wrap" style="display:none">
+          <select id="konica-samples" class="konica-select" onchange="onKonicaSampleSelect(event)"></select>
+        </span>
+        <label class="file-label" for="konica-file-upload"><i class="fa-solid fa-upload"></i> Upload&hellip;</label>
+        <input type="file" id="konica-file-upload" accept=".txt,.csv" onchange="loadKonicaFile(event)">
+      </div>
     </div>
     <div class="konica-mode">
       <span class="konica-mode-label">Code type</span>
@@ -89,22 +103,15 @@
       <span class="konica-mode-hint muted" id="konica-mode-hint"></span>
     </div>
     <div class="panel">
-      <div class="top-bar">
-        <h2>Dot Blocks (30 one-hot base&#8209;6 boxes)</h2>
-        <div class="controls">
-          <button class="btn-danger" onclick="clearKonica()">Clear</button>
-          <label class="file-label" for="konica-file-upload">Load</label>
-          <input type="file" id="konica-file-upload" accept=".txt,.csv" onchange="loadKonicaFile(event)">
-          <span id="konica-status" style="color:#888;font-size:0.8rem;"></span>
-        </div>
+      <h2>Dot Blocks (30 one-hot base&#8209;6 boxes)</h2>
+      <div class="tab-bar view-tabs" id="konica-view-toggle">
+        <button type="button" class="tab-btn active" data-view="blocks" onclick="setKonicaView('blocks')">Blocks</button>
+        <button type="button" class="tab-btn" data-view="grid" onclick="setKonicaView('grid')">Grid</button>
       </div>
-      <p class="konica-help">
-        Each box holds exactly one dot &mdash; click a position inside a box to set it
-        (its location encodes a digit 0&ndash;5). Dots only exist inside the boxes.
-        The yellow upside&#8209;down&nbsp;&ldquo;L&rdquo; is the fixed registration marker.
-        Rectangles are colored by the field each box encodes in the selected code type:
-      </p>
+      <div class="konica-status-line" id="konica-status"></div>
+      <p class="konica-help" id="konica-help-text"></p>
       <div class="konica-legend" id="konica-legend-top"></div>
+      <div class="ksample-meta" id="konica-sample-meta"></div>
       <div class="konica-board-wrap">
         <div class="konica-board" id="konica-board"></div>
       </div>
@@ -162,6 +169,7 @@
 <script src="static/js/fileio.js"></script>
 <script src="static/js/konica-decode.js"></script>
 <script src="static/js/konica.js"></script>
+<script src="static/js/samples.js"></script>
 <script src="static/js/calendar.js"></script>
 <script src="static/js/app.js"></script>
 </body>

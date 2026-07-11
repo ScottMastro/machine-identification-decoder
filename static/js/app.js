@@ -4,7 +4,7 @@ function switchTab(tab, updateUrl = true) {
   document.querySelectorAll('.tab-content').forEach(el => {
     el.style.display = el.id === 'tab-' + tab ? '' : 'none';
   });
-  document.querySelectorAll('.tab-btn').forEach(btn => {
+  document.querySelectorAll('[data-tab]').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.tab === tab);
   });
   // Remember the tab in the URL hash so a refresh lands back here.
@@ -41,4 +41,5 @@ applyCalendarFlag();
 initGrid();
 renderGrid();
 initKonica();
+initKonicaSamples(); // async; populates the sample dropdown if any files exist
 applyInitialTab();

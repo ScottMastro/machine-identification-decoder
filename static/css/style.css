@@ -7,6 +7,9 @@ body {
   padding: clamp(0.5rem, 3vw, 2rem);
 }
 .app-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
   background: #16213e;
   border: 1px solid #0f3460;
   border-radius: 12px;
@@ -19,6 +22,13 @@ h1 {
   font-size: clamp(1.2rem, 3.5vw, 1.8rem);
   letter-spacing: 0.3px;
 }
+.header-rule {
+  border: none;
+  border-top: 1px solid #0f3460;
+  margin: 0;
+  width: 100%;
+}
+.app-header .controls { justify-content: center; }
 
 .container { max-width: 1100px; margin: 0 auto; }
 
@@ -32,6 +42,40 @@ h1 {
 .panel h2 { color: #f0c040; font-size: 1.1rem; margin-bottom: 1rem; }
 
 .grid-wrapper { overflow-x: auto; margin-bottom: 1rem; }
+
+/* Xerox grid view: a tight square-cell grid (reuses .kcell styling) with the
+   same edge labels as the dots view, so cells and footprint match. An auto
+   label column/rows wrap a block of dot-sized square cells. */
+.xerox-board {
+  /* Cell pitch = dot width + the dots view's border-spacing, so the tight grid
+     lines up column-for-column with the dots and occupies the same footprint. */
+  --xcell: calc(clamp(28px, 4.5vw, 52px) + clamp(3px, 0.7vw, 8px));
+  display: grid;
+  grid-template-columns: auto repeat(15, var(--xcell));
+  grid-template-rows: auto auto repeat(8, var(--xcell));
+  gap: 0;
+  padding: clamp(3px, 0.7vw, 8px);
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+}
+.xerox-board .kcell { width: var(--xcell); height: var(--xcell); }
+.xlabel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 4px;
+  font-size: clamp(0.55rem, 1.2vw, 0.75rem);
+  font-weight: bold;
+  color: #f0c040;
+  text-align: center;
+}
+.xlabel.xfield {
+  font-size: clamp(0.5rem, 1.1vw, 0.65rem);
+  line-height: 1.05;
+  word-break: break-word;
+}
+.xlabel.xfield.unused { color: #444; font-weight: normal; }
 
 table.mic-grid {
   border-collapse: separate;
@@ -172,6 +216,34 @@ input[type="file"] { display: none; }
 .decoded-value { font-size: 1.1rem; font-weight: bold; color: #f0c040; }
 .decoded-value .invalid { color: #e94560; }
 
+/* Konica Minolta: sample-file dropdown + its metadata line. */
+.konica-select {
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  background: #0f3460;
+  color: #e0e0e0;
+  border: 1px solid #1a4a7a;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+/* Reserved-height status line (no layout shift when text appears/clears). */
+.konica-status-line {
+  min-height: 1.15rem;
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: #888;
+}
+.ksample-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  margin-top: 0.6rem;
+  font-size: 0.82rem;
+  color: #aaa;
+}
+.ksample-meta:empty { display: none; }
+.ksample-key { color: #f0c040; margin-right: 0.25rem; }
+
 /* Konica Minolta: Old/New code toggle. */
 .konica-mode {
   display: flex;
@@ -198,6 +270,7 @@ input[type="file"] { display: none; }
 .konica-toggle-btn.active { background: #f0c040; color: #1a1a2e; }
 .konica-toggle-btn:not(.active):hover { background: #1a4a7a; }
 .konica-mode-hint { font-size: 0.8rem; }
+.konica-view-row { margin: 0.25rem 0 0.75rem; }
 
 /* Konica Minolta: one real 16x24 dot grid with block rectangles drawn on top. */
 .konica-help { color: #888; font-size: 0.85rem; margin-bottom: 1rem; }
@@ -239,6 +312,30 @@ input[type="file"] { display: none; }
   cursor: default;
 }
 .kdot-empty:hover { border-color: #4a4a6a; }
+
+/* Grid view: a tight square-cell grid (like the Python tool) with thin cell
+   lines and thick lines outlining each block. Overrides the dot-board layout. */
+.konica-board.konica-board--grid {
+  gap: 0;
+  place-items: stretch;
+}
+.kcell {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 1px solid #2b2b44;      /* thin cell lines */
+  background: #14142400;
+  box-sizing: border-box;
+}
+.kcell-fill { background: #12121e; cursor: pointer; }
+.kcell-fill:hover { background: #23233a; }
+.kcell-fill.filled { background: #f0c040; }
+.kcell-fill.filled:hover { background: #f0c040; }
+/* Off-block cells can't hold a dot. */
+.kcell-off { background: #0b0b12; cursor: default; }
+/* Fixed thick grid lines (above certain rows / left of certain columns). */
+.kcell.kt { border-top-width: 3px; border-top-color: #c8ccda; }
+.kcell.kl { border-left-width: 3px; border-left-color: #c8ccda; }
 
 /* Aesthetic overlay: rectangles stretch across their grid tracks, clicks pass through. */
 .krect {
@@ -400,11 +497,34 @@ table.ref-table td:first-child {
 }
 table.ref-table tr.unused-row td { color: #555; }
 
-/* Tab bar */
+/* Top-level decoder selector: a centered segmented switch. */
+.decoder-switch {
+  display: flex;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto 2rem;
+  border: 1px solid #0f3460;
+  border-radius: 10px;
+  overflow: hidden;
+  flex-wrap: wrap;
+}
+.decoder-btn {
+  padding: 0.6rem 1.6rem;
+  border: none;
+  border-radius: 0;
+  background: #0f3460;
+  color: #e0e0e0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+.decoder-btn.active { background: #f0c040; color: #1a1a2e; }
+.decoder-btn:not(.active):hover { background: #1a4a7a; }
+
+/* Tab bar — now used for the Dots/Grid (Blocks/Grid) view tabs on each page. */
 .tab-bar {
   display: flex;
   gap: 0;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
   border-bottom: 2px solid #0f3460;
 }
 .tab-btn {

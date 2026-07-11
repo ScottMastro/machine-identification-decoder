@@ -1,0 +1,3 @@
+# Local Konica sample library (decoded dot .txt files + optional meta.txt).
+# Drop files in here to populate the sample dropdown; not tracked in git.
+samples/

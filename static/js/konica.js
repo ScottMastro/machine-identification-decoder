@@ -16,8 +16,50 @@ const KONICA_MARKER_CELLS = [[0, 0], [0, 2], [3, 0]];
 // spacers. None of these are user-editable.
 const KONICA_LOCKED_BOXES = new Set([0, 1, 6]);
 
-// Current dot (0-5) selected in each editable box; absent = empty.
+// The raw 16x24 dot matrix is the source of truth. konicaBoxValues (box -> 0-5)
+// is derived from it for decoding and the blocks / mini-block views.
+const KONICA_MARKER_SET = new Set(KONICA_MARKER_CELLS.map(([r, c]) => r + ',' + c));
+let konicaMatrix = konicaBlankMatrix();
+
+// Current dot (0-5) selected in each editable box; absent = empty. Derived from
+// konicaMatrix via syncKonicaBoxValues().
 let konicaBoxValues = {};
+
+// Which board view is shown: 'blocks' = rectangles + one-dot-per-box input;
+// 'grid' = a plain uniform grid where any dot toggles freely (like the source
+// Python tool), which is easier when transcribing a raw dot pattern.
+let konicaView = 'blocks';
+
+// A fresh matrix with only the locked registration marker set.
+function konicaBlankMatrix() {
+  const m = Array.from({ length: 16 }, () => new Array(24).fill(0));
+  for (const cell of new Set([[0, 0], [0, 2], [3, 0]].map(([r, c]) => r + ',' + c))) {
+    const [r, c] = cell.split(',').map(Number);
+    m[r][c] = 1;
+  }
+  return m;
+}
+
+// Build a matrix from a parsed grid, forcing the marker cells on.
+function konicaMatrixFromGrid(g) {
+  const m = konicaBlankMatrix();
+  for (let r = 0; r < 16; r++) {
+    for (let c = 0; c < 24; c++) {
+      if (g[r] && g[r][c]) m[r][c] = 1;
+    }
+  }
+  return m;
+}
+
+// Recompute the derived box values (box -> 0-5) from the raw matrix.
+function syncKonicaBoxValues() {
+  const oneHot = extractKonicaBlocks(konicaMatrix);
+  konicaBoxValues = {};
+  for (let id = 0; id < 30; id++) {
+    if (KONICA_LOCKED_BOXES.has(id)) continue; // marker anchor + spacers
+    if (oneHot[id] !== null) konicaBoxValues[id] = oneHot[id];
+  }
+}
 
 // Which decoding scheme to apply. 'old' = model number + timestamp (printers
 // made before ~2007); 'new' = full serial number + checksums (2013+). The board
@@ -125,6 +167,8 @@ function konicaCellRoles() {
 function renderKonicaBoard() {
   const board = document.getElementById('konica-board');
   board.innerHTML = '';
+  board.classList.toggle('konica-board--grid', konicaView === 'grid');
+  if (konicaView === 'grid') { renderKonicaGridView(board); return; }
   const roles = konicaCellRoles();
   const catMap = konicaCategoryMap(konicaCodeType);
 
@@ -220,15 +264,84 @@ function renderKonicaBlocksView() {
   }
 }
 
-// One dot per box: clicking the active dot clears the box, else selects it.
-function onKonicaCellClick(id, val) {
-  if (konicaBoxValues[id] === val) {
-    delete konicaBoxValues[id];
-  } else {
-    konicaBoxValues[id] = val;
+// Fixed thick grid lines, matching select_dots.py: a thick line to the LEFT of
+// these columns and ABOVE these rows. A uniform reference grid, independent of
+// the blocks.
+const KONICA_THICK_COLS = new Set([3, 6, 9, 12, 15, 18, 21]);
+const KONICA_THICK_ROWS = new Set([4, 8, 12]);
+
+// Grid view: a tight square-cell grid like the source Python tool — thin cell
+// lines with fixed thick lines at the grid divisions. Only in-block cells are
+// fillable (one dot per block); off-block cells are shown but disabled.
+function renderKonicaGridView(board) {
+  const roles = konicaCellRoles();
+  for (let r = 0; r < KONICA_GRID_ROWS; r++) {
+    for (let c = 0; c < KONICA_GRID_COLS; c++) {
+      const key = r + ',' + c;
+      const role = roles[key];
+      let cell;
+      let cls = 'kcell';
+      if (KONICA_THICK_ROWS.has(r)) cls += ' kt'; // thick line above this row
+      if (KONICA_THICK_COLS.has(c)) cls += ' kl'; // thick line left of this col
+      if (role && role.kind === 'marker') {
+        cell = document.createElement('div');
+        cell.className = cls + ' kcell-fill filled';
+        cell.title = 'Registration marker (always present)';
+      } else if (role && role.kind === 'fill') {
+        cell = document.createElement('button');
+        cell.type = 'button';
+        const on = konicaMatrix[r][c] === 1;
+        cell.className = cls + ' kcell-fill' + (on ? ' filled' : '');
+        cell.addEventListener('click', () => onKonicaCellClick(role.id, role.val));
+      } else {
+        cell = document.createElement('div');
+        cell.className = cls + ' kcell-off';
+        cell.title = 'No dot position here';
+      }
+      cell.style.gridRow = String(r + 1);
+      cell.style.gridColumn = String(c + 1);
+      board.appendChild(cell);
+    }
   }
+}
+
+// Blocks view — one dot per box: clicking the active dot clears the box, else
+// selects it (clearing any other dot in that box).
+function onKonicaCellClick(id, val) {
+  const [br, bc] = KONICA_BLOCK_POSITIONS[id];
+  const cells = [];
+  for (let v = 0; v < 6; v++) {
+    cells.push([(br + Math.floor(v / 2)) % KONICA_GRID_ROWS, (bc + (v % 2)) % KONICA_GRID_COLS, v]);
+  }
+  const [tr, tc] = cells.find(cell => cell[2] === val);
+  const already = konicaMatrix[tr][tc] === 1;
+  for (const [r, c] of cells) konicaMatrix[r][c] = 0; // one dot per box
+  if (!already) konicaMatrix[tr][tc] = 1;
+  syncKonicaBoxValues();
   renderKonicaBoard();
   runKonicaDecode();
+}
+
+const KONICA_VIEW_HELP = {
+  blocks: 'Each box holds exactly one dot &mdash; click a position inside a box to set it '
+    + '(its location encodes a digit 0&ndash;5). The yellow upside&#8209;down&nbsp;&ldquo;L&rdquo; '
+    + 'is the fixed registration marker. Rectangles are colored by the field each box encodes:',
+  grid: 'A tight reference grid like the source tool &mdash; easier for transcribing a raw pattern. '
+    + 'Click a cell inside a block to set its dot (one per block); off&#8209;block cells can’t be '
+    + 'filled. The yellow&nbsp;&ldquo;L&rdquo; is the fixed registration marker.',
+};
+
+// Switch between the Blocks and Grid board views.
+function setKonicaView(view) {
+  konicaView = view;
+  document.querySelectorAll('#konica-view-toggle .tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.view === view);
+  });
+  const legend = document.getElementById('konica-legend-top');
+  if (legend) legend.style.display = view === 'grid' ? 'none' : '';
+  const help = document.getElementById('konica-help-text');
+  if (help) help.innerHTML = KONICA_VIEW_HELP[view] || '';
+  renderKonicaBoard();
 }
 
 function runKonicaDecode() {
@@ -264,8 +377,12 @@ function setKonicaCodeType(type) {
 }
 
 function clearKonica() {
-  konicaBoxValues = {};
+  konicaMatrix = konicaBlankMatrix();
+  syncKonicaBoxValues();
   document.getElementById('konica-status').textContent = '';
+  const sel = document.getElementById('konica-samples');
+  if (sel) sel.value = '';
+  if (typeof renderKonicaSampleMeta === 'function') renderKonicaSampleMeta(null);
   renderKonicaBoard();
   runKonicaDecode();
 }
@@ -397,15 +514,11 @@ function loadKonicaFile(e) {
       statusEl.textContent = 'Invalid grid (need 16 rows x 24 columns of 0/1)';
       return;
     }
-    const oneHot = extractKonicaBlocks(g);
-    konicaBoxValues = {};
-    for (let id = 0; id < 30; id++) {
-      if (KONICA_LOCKED_BOXES.has(id)) continue; // marker anchor + spacers
-      if (oneHot[id] !== null) konicaBoxValues[id] = oneHot[id];
-    }
+    konicaMatrix = konicaMatrixFromGrid(g);
+    syncKonicaBoxValues();
     renderKonicaBoard();
     runKonicaDecode();
-    statusEl.textContent = 'Loaded: ' + file.name;
+    statusEl.textContent = 'Source: ' + file.name;
   };
   reader.onerror = () => { statusEl.textContent = 'Could not read ' + file.name; };
   reader.readAsText(file);
@@ -414,7 +527,9 @@ function loadKonicaFile(e) {
 
 // Render the board immediately so the Konica tab is live without any file.
 function initKonica() {
-  konicaBoxValues = {};
+  konicaMatrix = konicaBlankMatrix();
+  syncKonicaBoxValues();
   // setKonicaCodeType renders the legends, board, and decode for the initial mode.
   setKonicaCodeType(konicaCodeType);
+  setKonicaView('blocks'); // sets the view toggle, help text, and legend visibility
 }
