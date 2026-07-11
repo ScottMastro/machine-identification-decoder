@@ -175,8 +175,14 @@ const KONICA_CYPHER = {
 };
 
 const KONICA_BRANDS = { 0: 'Konica', 1: 'Develop', 2: 'Lexmark', 3: 'Olivetti' };
+// Region 4 was unknown to Donovan ("unable to find the power requirement");
+// pinned by dataset samples DOC-0005/6/7 — label-verified machines at an
+// Australian university. Same 230V as Europe, so the digit enumerates
+// destination markets, not voltages. Exact AP boundary (China? NZ/SEA?)
+// still unconfirmed; 3 has never been observed.
 const KONICA_REGIONS = {
-  0: 'Japan (100V)', 1: 'United States (120V)', 2: 'Europe (220-240V)', 4: 'Unknown region',
+  0: 'Japan (100V)', 1: 'North America (120V)', 2: 'Europe (220-240V)',
+  4: 'Asia-Pacific incl. Australia (220-240V)',
 };
 
 // Checksum boxes: box 28 checks the model, box 29 checks the serial. The
