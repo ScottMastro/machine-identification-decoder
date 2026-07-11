@@ -745,18 +745,20 @@ function konicaExportCaption() {
   return bits.join(' · ') || 'Old code';
 }
 
-// Render the current dot pattern (board as shown) to a PNG and download it.
-// This is the reusable "emit a visual" primitive: one click per loaded sample,
-// captioned with its device id, model, and live-decoded serial.
-async function saveKonicaImage() {
+// The current 16x24 dot matrix as CSV text — the exact format loadKonicaFile /
+// onKonicaSampleSelect parse back in, so a saved grid is round-trippable.
+function konicaGridToText() {
+  return konicaMatrix.map(row => row.join(',')).join('\n');
+}
+
+// Render the current dot pattern (board as shown) to a captioned PNG blob. A
+// clone of the board is used so the live DOM / parity / hover state is never
+// disturbed. Returns null if html2canvas is unavailable or rendering fails.
+async function makeKonicaScreenshotBlob() {
   const board = document.getElementById('konica-board');
-  if (!board) return;
-  if (typeof html2canvas !== 'function') { alert('Image export unavailable (html2canvas not loaded).'); return; }
+  if (!board || typeof html2canvas !== 'function') return null;
 
   const meta = currentKonicaSampleName ? (konicaSampleMeta[currentKonicaSampleName] || null) : null;
-  const idPart = (meta && (meta.device || meta.id))
-    || (currentKonicaSampleName ? currentKonicaSampleName.replace(/^km_/, '').replace(/\.txt$/, '') : null)
-    || 'grid';
   const titleBits = [];
   if (meta && meta.device) titleBits.push(meta.device);
   if (meta && meta.model) titleBits.push(meta.model);
@@ -764,8 +766,6 @@ async function saveKonicaImage() {
   const sub = meta && meta.source ? String(meta.source) : '';
   const caption = konicaExportCaption();
 
-  // Build an off-screen, self-contained capture node (a clone of the board so
-  // the live DOM and its parity/hover state are never disturbed).
   const wrap = document.createElement('div');
   wrap.style.cssText = 'position:fixed; left:-99999px; top:0; display:inline-block; '
     + 'background:#16213e; padding:20px 22px; border-radius:10px; '
@@ -780,21 +780,58 @@ async function saveKonicaImage() {
   wrap.appendChild(head);
   wrap.appendChild(board.cloneNode(true));
   document.body.appendChild(wrap);
-
   try {
     const canvas = await html2canvas(wrap, { backgroundColor: '#16213e', scale: 2 });
-    const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'konica-' + idPart + '.png';
-    a.click();
-    URL.revokeObjectURL(url);
+    return await new Promise(res => canvas.toBlob(res, 'image/png'));
   } catch (err) {
-    alert('Could not render image: ' + err.message);
+    console.error('Konica screenshot failed:', err);
+    return null;
   } finally {
     wrap.remove();
   }
+}
+
+// Save the current dot layout — a reloadable .txt grid plus a .png visual —
+// mirroring the Xerox Save so a hand-traced pattern can be produced and later
+// re-uploaded. Prefers the File System Access directory picker, else downloads.
+async function saveKonica() {
+  const meta = currentKonicaSampleName ? (konicaSampleMeta[currentKonicaSampleName] || null) : null;
+  const suggested = (meta && meta.device && meta.id ? meta.device + '.' + meta.id
+    : (currentKonicaSampleName ? currentKonicaSampleName.replace(/\.txt$/, '') : 'konica_mic'));
+  const name = prompt('File name:', suggested);
+  if (name === null) return;
+  const prefix = name || 'konica_mic';
+
+  const txtBlob = new Blob([konicaGridToText()], { type: 'text/plain' });
+  const pngBlob = await makeKonicaScreenshotBlob();
+
+  // Try the directory picker (shared with the Xerox tab via fileio.js).
+  if (window.showDirectoryPicker) {
+    try {
+      savedDirHandle = savedDirHandle || await window.showDirectoryPicker({ startIn: 'documents' });
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+      savedDirHandle = null;
+    }
+    if (savedDirHandle) {
+      await writeFileToDir(savedDirHandle, prefix + '.txt', txtBlob);
+      if (pngBlob) await writeFileToDir(savedDirHandle, prefix + '.png', pngBlob);
+      return;
+    }
+  }
+
+  // Fallback: browser downloads.
+  downloadBlob(txtBlob, prefix + '.txt');
+  if (pngBlob) downloadBlob(pngBlob, prefix + '.png');
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // Optional: load a real 16x24 grid file and populate the board from it.
