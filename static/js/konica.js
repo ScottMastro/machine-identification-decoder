@@ -82,6 +82,18 @@ const KONICA_MODE_HINTS = {
 // reveals it.
 const KONICA_BRAND_LO = '?';
 
+// New-code boxes that hold the same value on every known sample (null = blank).
+// They carry no serial data, but they act as a sanity check: a box that differs
+// means the pattern was mis-traced (or this printer breaks the pattern).
+// Verified invariant across all new-code samples in the dataset.
+const KONICA_NEW_CONSTANTS = {
+  0: 0, 1: null, 4: 5, 5: 5, 6: null, 18: 0, 23: 5, 24: 5, 25: 5, 26: 5,
+};
+
+// Display order: the marker/blank/zero boxes first (0, 1, 6, 18), then the
+// always-5 boxes in numerical order.
+const KONICA_NEW_CONSTANT_ORDER = [0, 1, 6, 18, 4, 5, 23, 24, 25, 26];
+
 // What each box means under each scheme, used to color the rectangles/mini-
 // blocks and to build the legend. Order here is the legend order. Every box
 // 0-29 is assigned exactly one category per mode.
@@ -574,6 +586,30 @@ function konicaChecksumRow(label, checkBoxes, checkBox, c, oneHot) {
     + '</li>';
 }
 
+// The constant boxes, shown as a check: each should hold its fixed value, so a
+// deviation flags a mis-traced pattern even though these boxes carry no serial.
+function konicaConstantsRow(oneHot) {
+  const cells = KONICA_NEW_CONSTANT_ORDER.map(b => {
+    const exp = KONICA_NEW_CONSTANTS[b];
+    const got = oneHot[b] == null ? null : oneHot[b];
+    const match = got === exp;
+    const mark = match
+      ? '<span class="parity-ok">&#10003;</span>'
+      : '<span class="parity-err">&#10007;</span>';
+    return '<span class="kconst" title="box ' + b + ' &mdash; expected '
+      + (exp == null ? 'blank' : exp) + '">'
+      + konicaMiniBlock(b, true).outerHTML
+      + '<span class="kconst-exp">' + (exp == null ? '&middot;' : exp) + ' ' + mark + '</span>'
+      + '</span>';
+  }).join('');
+  return '<li class="kck-item">'
+    + '<div class="kck-row">' + cells + '</div>'
+    + '</li>'
+    + '<li class="kconst-note muted">The value under each box is what it should read &mdash; every '
+    + 'known sample holds these same values (blank, 0 or 5). They carry no serial data, but if one '
+    + 'differs the pattern was probably mis-traced.</li>';
+}
+
 // One field-by-field box (mini-blocks + conversions + resolved value). Always
 // colored, since it lives in the always-colored Decoded section. `label`
 // overrides the section's own label when given.
@@ -651,6 +687,7 @@ function renderKonicaDecodedNew(host, oneHot) {
     + 'likely the brand&rsquo;s low digit, but which one is unknown &mdash; and box&nbsp;18, always 0 '
     + 'in every known sample with an unknown role, kept in the sum where a 0 changes nothing.';
   host.appendChild(checkNote);
+  host.appendChild(konicaSubsection('Constants', konicaConstantsRow(oneHot)));
 }
 
 // Old scheme: model code up top, likely printer, then Date and Parity sections.

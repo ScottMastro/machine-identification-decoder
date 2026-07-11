@@ -660,6 +660,28 @@ input[type="file"] { display: none; }
 .kck-exp b { color: #f0c040; }
 .kck-arrow { color: #8a93b5; }
 
+/* Constant boxes, shown as a check: each mini-block with its pass/fail mark. */
+.kconst {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+}
+/* Expected value + pass/fail mark, sitting under each constant box. */
+.kconst-exp {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.8rem;
+  color: #8a93b5;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.kconst-note {
+  font-size: 0.8rem;
+  line-height: 1.4;
+  padding-top: 0.2rem !important;
+}
+
 /* Column reference table */
 table.ref-table {
   width: 100%;
