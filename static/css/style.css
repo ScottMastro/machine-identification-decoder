@@ -432,12 +432,80 @@ input[type="file"] { display: none; }
   color: #666;
 }
 
-/* Read-only blocks view: the 30 blocks sliced out in array order. */
+/* Read-only "blocks by field" view: the 30 blocks grouped into decoded fields. */
 .konica-blocks {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
-  gap: 0.45rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
 }
+
+/* One decoded field: a header (name + resolved value) over its parts. */
+.kfield {
+  border: 1px solid #26264a;
+  border-left: 3px solid #3a3a5c;
+  border-radius: 6px;
+  padding: 0.5rem 0.7rem 0.55rem;
+  background: #141428;
+}
+.kfield-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-bottom: 0.55rem;
+}
+.kfield-title { font-size: 0.85rem; font-weight: 600; color: #e6e6ee; }
+.kfield-result {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #f0c040;
+  text-align: right;
+}
+.kfield-parts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 1.15rem;
+  align-items: flex-start;
+}
+/* A part = the boxes that combine into one value, plus its translation. */
+.kpart { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.kpart-boxes { display: flex; gap: 5px; }
+.kpart-conv {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  color: #cfd3e0;
+  white-space: nowrap;
+}
+.kconv-key { color: #9aa3b2; }
+.kconv-out { color: #f0c040; font-weight: 700; }
+.kconv-split { color: #7f8497; }
+.kconv-inc { color: #5a5f74; }
+.kpart-label {
+  font-size: 0.6rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #7f8497;
+}
+.kfield-note {
+  margin-top: 0.5rem;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: #7a7f96;
+}
+
+/* Field accent colors, matching the legend / board rectangles. */
+.kfield-box-serial   { border-left-color: #e6a94d; }
+.kfield-box-brand    { border-left-color: #b98ce0; }
+.kfield-box-region   { border-left-color: #4fb8ac; }
+.kfield-box-submodel { border-left-color: #e086b0; }
+.kfield-box-batchnum { border-left-color: #6cc06c; }
+.kfield-box-checksum { border-left-color: #e0705a; }
+.kfield-box-model    { border-left-color: #e08a5a; }
+.kfield-box-time     { border-left-color: #5aa9e0; }
+.kfield-box-parity   { border-left-color: #9a8ce6; }
+.kfield-box-constant { border-left-color: #8a92a0; }
+.kfield-box-spacer   { border-left-color: #565a6e; }
 .kblock {
   border: 1px solid #3a3a5c;
   border-radius: 5px;

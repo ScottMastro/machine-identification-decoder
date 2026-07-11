@@ -94,6 +94,67 @@ const KONICA_FIELD_CATEGORIES = {
   ],
 };
 
+// Field sections for the "Blocks by field" panel. Each section is a decoded
+// field; its `parts` list the boxes IN CONSUMPTION ORDER (not array order),
+// grouped into the combinations the decoder actually reads. `conv` says how a
+// part's boxes translate into a value:
+//   'cypher' - two boxes concatenated as a DECIMAL key -> cypher character
+//   'base6'  - N boxes read as one base-6 number -> base-10
+//   'mirror' - a mirrored parity pair; the two boxes should match
+//   'none'   - shown as-is (checksums, constants, spacers)
+// Section/part order and box grouping mirror konica-decode.js and the reference
+// PDF ("Deciphering the Konica Minolta MIC Dots", Donovan R.).
+const KONICA_SECTIONS = {
+  new: [
+    { key: 'serial', label: 'Series &amp; model', note:
+        'Implicit leading &ldquo;A&rdquo;; each later character = two boxes read as a '
+        + 'decimal key, then looked up in the cypher.', parts: [
+      { boxes: [7, 3],  conv: 'cypher', label: '2nd char' },
+      { boxes: [2, 15], conv: 'cypher', label: '3rd char' },
+      { boxes: [11, 10], conv: 'cypher', label: '4th char' },
+    ] },
+    { key: 'brand',    label: 'Brand',     parts: [{ boxes: [27, 4],  conv: 'cypher', label: 'brand' }] },
+    { key: 'region',   label: 'Region',    parts: [{ boxes: [22, 21], conv: 'cypher', label: 'region' }] },
+    { key: 'submodel', label: 'Sub-model', parts: [{ boxes: [17, 18], conv: 'cypher', label: 'sub-model' }] },
+    { key: 'batchnum', label: 'Batch &amp; number', note:
+        'Seven boxes read as one base-6 number &rarr; base-10, padded to 6 digits: '
+        + 'first three = batch, last three = number.', parts: [
+      { boxes: [19, 20, 12, 13, 14, 8, 9], conv: 'base6', pad: 6, split: true, label: 'batch + number' },
+    ] },
+    { key: 'checksum', label: 'Checksum', note:
+        'Box&nbsp;28 checks the model boxes (2,3,7,10,11,15); box&nbsp;29 checks the serial '
+        + 'boxes (8,9,12,13,14,17,18,19,20,21,22,23,27). Each = (6 &minus; &Sigma; mod 6) mod 6.', parts: [
+      { boxes: [28], conv: 'none', label: 'model check' },
+      { boxes: [29], conv: 'none', label: 'serial check' },
+    ] },
+    { key: 'constant', label: 'Constant', parts: [{ boxes: [0, 4, 5, 16, 23, 24, 25, 26], conv: 'none' }] },
+    { key: 'spacer',   label: 'Spacer',   parts: [{ boxes: [1, 6], conv: 'none' }] },
+  ],
+  old: [
+    { key: 'model', label: 'Model code', note:
+        'Boxes 7,3,2 read as base-6 &rarr; base-10 (box&nbsp;7 is always 0).', parts: [
+      { boxes: [7, 3, 2], conv: 'base6', label: 'model code' },
+    ] },
+    { key: 'time', label: 'Timestamp', note:
+        'Each field = two boxes as base-6 &rarr; base-10. Add 1990 to the year; the hour is '
+        + '24-hour. Most printers leave these all 5 (no timestamp recorded).', parts: [
+      { boxes: [15, 11], conv: 'base6', label: 'year' },
+      { boxes: [10, 5],  conv: 'base6', label: 'month' },
+      { boxes: [4, 26],  conv: 'base6', label: 'day' },
+      { boxes: [25, 24], conv: 'base6', label: 'hour' },
+    ] },
+    { key: 'parity', label: 'Parity (mirrored)', note:
+        'The old code repeats values in mirrored box pairs; each pair should match.', parts: [
+      { boxes: [16, 18], conv: 'mirror' }, { boxes: [14, 27], conv: 'mirror' },
+      { boxes: [17, 19], conv: 'mirror' }, { boxes: [8, 28],  conv: 'mirror' },
+      { boxes: [9, 29],  conv: 'mirror' }, { boxes: [20, 21], conv: 'mirror' },
+      { boxes: [12, 22], conv: 'mirror' }, { boxes: [13, 23], conv: 'mirror' },
+    ] },
+    { key: 'constant', label: 'Constant', parts: [{ boxes: [0], conv: 'none' }] },
+    { key: 'spacer',   label: 'Spacer',   parts: [{ boxes: [1, 6], conv: 'none' }] },
+  ],
+};
+
 // Box id -> category key for the active scheme.
 function konicaCategoryMap(mode) {
   const map = {};
@@ -226,41 +287,177 @@ function renderKonicaBoard() {
   }
 }
 
-// Read-only "blocks view": the same dot data, sliced into its 30 blocks and
-// laid out in array order. Each block is a small 3x2 grid showing its single
-// dot, outlined in its type color, with the base-10 digit it encodes below.
+// The base-6 digit currently in a box (box 0 is the marker anchor, always 0;
+// null = empty box).
+function konicaDigit(id) {
+  if (id === 0) return 0;
+  return id in konicaBoxValues ? konicaBoxValues[id] : null;
+}
+
+// One mini-block: the 3x2 dot grid for a box, outlined in its field color, with
+// the base-10 digit it encodes below.
+function konicaMiniBlock(id) {
+  const catMap = konicaCategoryMap(konicaCodeType);
+  const val = konicaDigit(id);
+  const cls = konicaShownCat(catMap[id] || 'default');
+
+  const block = document.createElement('div');
+  block.className = 'kblock kblock-' + cls;
+
+  const head = document.createElement('div');
+  head.className = 'kblock-id';
+  head.textContent = id;
+  block.appendChild(head);
+
+  const cells = document.createElement('div');
+  cells.className = 'kblock-cells';
+  for (let v = 0; v < 6; v++) {
+    const cell = document.createElement('div');
+    cell.className = 'kblock-cell' + (val === v ? ' filled' : '');
+    cells.appendChild(cell);
+  }
+  block.appendChild(cells);
+
+  const digit = document.createElement('div');
+  digit.className = 'kblock-digit' + (val === null ? ' empty' : '');
+  digit.textContent = val === null ? '·' : String(val);
+  block.appendChild(digit);
+  return block;
+}
+
+// The translation text for one part: base-6 -> base-10, decimal-key -> cypher
+// character, or a mirrored-pair match check.
+function konicaConvText(part) {
+  const ds = part.boxes.map(konicaDigit);
+  const incomplete = ds.some(d => d == null);
+
+  if (part.conv === 'cypher') {
+    if (incomplete) return '&rarr; <span class="kconv-inc">&hellip;</span>';
+    const key = ds[0] * 10 + ds[1];
+    const ch = KONICA_CYPHER[key];
+    return '&rarr; <span class="kconv-key">' + key + '</span> &rarr; '
+      + '<span class="kconv-out">' + (ch === undefined ? '?' : ch) + '</span>';
+  }
+  if (part.conv === 'base6') {
+    if (incomplete) return '&rarr; <span class="kconv-inc">&hellip;</span>';
+    const b6 = ds.join('');
+    let decStr = String(parseInt(b6, 6));
+    if (part.pad) decStr = decStr.padStart(part.pad, '0');
+    let out = '&rarr; <span class="kconv-key">' + b6 + '<sub>6</sub></span> &rarr; '
+      + '<span class="kconv-out">' + decStr + '</span>';
+    if (part.split) out += ' <span class="kconv-split">(' + decStr.slice(0, 3)
+      + ' &middot; ' + decStr.slice(3) + ')</span>';
+    return out;
+  }
+  if (part.conv === 'mirror') {
+    if (incomplete) return '<span class="kconv-inc">pair</span>';
+    return ds[0] === ds[1]
+      ? '<span class="parity-ok">&#10003;</span>'
+      : '<span class="parity-err">&#10007;</span>';
+  }
+  return '';
+}
+
+// One part: its boxes (in consumption order), the translation, and a label.
+function konicaRenderPart(part) {
+  const wrap = document.createElement('div');
+  wrap.className = 'kpart';
+
+  const boxes = document.createElement('div');
+  boxes.className = 'kpart-boxes';
+  for (const id of part.boxes) boxes.appendChild(konicaMiniBlock(id));
+  wrap.appendChild(boxes);
+
+  if (part.conv && part.conv !== 'none') {
+    const conv = document.createElement('div');
+    conv.className = 'kpart-conv';
+    conv.innerHTML = konicaConvText(part);
+    wrap.appendChild(conv);
+  }
+  if (part.label) {
+    const lab = document.createElement('div');
+    lab.className = 'kpart-label';
+    lab.textContent = part.label;
+    wrap.appendChild(lab);
+  }
+  return wrap;
+}
+
+// The oneHot map (box -> 0-5 or null) for the current board.
+function konicaCurrentOneHot() {
+  const oneHot = {};
+  for (let id = 0; id < 30; id++) {
+    oneHot[id] = id === 0 ? 0 : (id in konicaBoxValues ? konicaBoxValues[id] : null);
+  }
+  return oneHot;
+}
+
+// The resolved value shown at the right of a section header (null = nothing to
+// show yet). Ties the per-part translations together into the decoded field.
+function konicaSectionSummary(key, oneHot) {
+  if (konicaCodeType === 'new') {
+    const s = decodeKonicaNewCode(oneHot).serial;
+    switch (key) {
+      case 'serial':   return s.seriesModel;
+      case 'brand':    return s.brand.digit == null ? null : s.brand.digit + ' &middot; ' + s.brand.name;
+      case 'region':   return s.region.digit == null ? null : s.region.digit + ' &middot; ' + s.region.name;
+      case 'submodel': return s.subModel == null ? null : String(s.subModel);
+      case 'batchnum': return s.batchNumber == null ? null : s.batch + ' &middot; ' + s.number;
+      default:         return null;
+    }
+  }
+  if (key === 'model') return String(decodeKonicaModelCode(oneHot).code);
+  if (key === 'parity') {
+    let ok = 0, tot = 0;
+    for (const p of KONICA_SECTIONS.old.find(s => s.key === 'parity').parts) {
+      const a = konicaDigit(p.boxes[0]), b = konicaDigit(p.boxes[1]);
+      if (a != null && b != null) { tot++; if (a === b) ok++; }
+    }
+    return tot ? ok + '/' + tot + ' match' : null;
+  }
+  return null;
+}
+
+// Read-only "blocks by field" view: the same dot data, grouped into its decoded
+// fields (each field's boxes in consumption order), showing the base-6 -> base-10
+// and cypher translations, plus the resolved value per field.
 function renderKonicaBlocksView() {
   const host = document.getElementById('konica-blocks');
   if (!host) return;
   host.innerHTML = '';
-  const catMap = konicaCategoryMap(konicaCodeType);
-  for (let id = 0; id < 30; id++) {
-    const val = id === 0 ? 0 : (id in konicaBoxValues ? konicaBoxValues[id] : null);
-    const cls = konicaShownCat(catMap[id] || 'default');
+  const oneHot = konicaCurrentOneHot();
 
-    const block = document.createElement('div');
-    block.className = 'kblock kblock-' + cls;
+  for (const sec of KONICA_SECTIONS[konicaCodeType]) {
+    const field = document.createElement('div');
+    field.className = 'kfield kfield-box-' + konicaShownCat(sec.key);
 
     const head = document.createElement('div');
-    head.className = 'kblock-id';
-    head.textContent = id;
-    block.appendChild(head);
-
-    const cells = document.createElement('div');
-    cells.className = 'kblock-cells';
-    for (let v = 0; v < 6; v++) {
-      const cell = document.createElement('div');
-      cell.className = 'kblock-cell' + (val === v ? ' filled' : '');
-      cells.appendChild(cell);
+    head.className = 'kfield-head';
+    const title = document.createElement('span');
+    title.className = 'kfield-title';
+    title.innerHTML = sec.label;
+    head.appendChild(title);
+    const summary = konicaSectionSummary(sec.key, oneHot);
+    if (summary != null) {
+      const res = document.createElement('span');
+      res.className = 'kfield-result';
+      res.innerHTML = summary;
+      head.appendChild(res);
     }
-    block.appendChild(cells);
+    field.appendChild(head);
 
-    const digit = document.createElement('div');
-    digit.className = 'kblock-digit' + (val === null ? ' empty' : '');
-    digit.textContent = val === null ? '·' : String(val);
-    block.appendChild(digit);
+    const parts = document.createElement('div');
+    parts.className = 'kfield-parts';
+    for (const part of sec.parts) parts.appendChild(konicaRenderPart(part));
+    field.appendChild(parts);
 
-    host.appendChild(block);
+    if (sec.note) {
+      const note = document.createElement('div');
+      note.className = 'kfield-note';
+      note.innerHTML = sec.note;
+      field.appendChild(note);
+    }
+    host.appendChild(field);
   }
 }
 
