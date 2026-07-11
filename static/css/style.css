@@ -43,44 +43,27 @@ h1 {
 
 .grid-wrapper { overflow-x: auto; margin-bottom: 1rem; }
 
-/* Xerox grid view: a tight square-cell grid (reuses .kcell styling) with the
-   same edge labels as the dots view, so cells and footprint match. An auto
-   label column/rows wrap a block of dot-sized square cells. */
-.xerox-board {
-  /* Cell pitch = dot width + the dots view's border-spacing, so the tight grid
-     lines up column-for-column with the dots and occupies the same footprint. */
-  --xcell: calc(clamp(28px, 4.5vw, 52px) + clamp(3px, 0.7vw, 8px));
-  display: grid;
-  grid-template-columns: auto repeat(15, var(--xcell));
-  grid-template-rows: auto auto repeat(8, var(--xcell));
-  gap: 0;
-  padding: clamp(3px, 0.7vw, 8px);
-  width: fit-content;
-  max-width: 100%;
+/* One box model shared by both Xerox views. Every data cell is an .xbox of
+   fixed size (dot + gap), so the table's footprint is identical whether we draw
+   round dots (Dots view) or square grid cells (Grid view). border-spacing is 0;
+   the gap lives *inside* each box as transparent padding around the round dot. */
+:root {
+  --xdot: clamp(28px, 4.5vw, 52px);
+  --xgap: clamp(3px, 0.7vw, 8px);
+  --xcell: calc(var(--xdot) + var(--xgap));
+}
+table.mic-grid {
+  border-collapse: separate;
+  border-spacing: 0;
   margin: 0 auto;
 }
-.xerox-board .kcell { width: var(--xcell); height: var(--xcell); }
-.xlabel {
+.xbox {
+  width: var(--xcell);
+  height: var(--xcell);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2px 4px;
-  font-size: clamp(0.55rem, 1.2vw, 0.75rem);
-  font-weight: bold;
-  color: #f0c040;
-  text-align: center;
-}
-.xlabel.xfield {
-  font-size: clamp(0.5rem, 1.1vw, 0.65rem);
-  line-height: 1.05;
-  word-break: break-word;
-}
-.xlabel.xfield.unused { color: #444; font-weight: normal; }
-
-table.mic-grid {
-  border-collapse: separate;
-  border-spacing: clamp(3px, 0.7vw, 8px);
-  margin: 0 auto;
+  box-sizing: border-box;
 }
 table.mic-grid th {
   font-size: clamp(0.55rem, 1.2vw, 0.75rem);
@@ -113,8 +96,8 @@ table.mic-grid td { padding: 0; }
 .col-info.unused { color: #444; font-weight: normal; }
 
 .dot {
-  width: clamp(28px, 4.5vw, 52px);
-  height: clamp(28px, 4.5vw, 52px);
+  width: var(--xdot);
+  height: var(--xdot);
   border-radius: 50%;
   border: 2px solid #335;
   background: #1a1a2e;
@@ -157,6 +140,30 @@ table.mic-grid td { padding: 0; }
 .dot.parity-dot:hover { border-color: #f0c040; }
 
 .dot.unused-dot { opacity: 0.55; }
+
+/* Grid view: same table, but each cell fills its box as a square grid cell
+   (like the Python tool) instead of a round dot. The .xbox stays the same size,
+   so the footprint is identical to the Dots view. Thick lines mark the parity
+   row/column boundaries. */
+.mic-grid--grid .xbox { padding: 0; }
+.mic-grid--grid .dot {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border-radius: 0;
+  border: 1px solid #2b2b44;      /* thin cell lines */
+  background: #12121e;
+  box-shadow: none;
+  opacity: 1;
+}
+.mic-grid--grid .dot:hover { background: #23233a; border-color: #2b2b44; }
+.mic-grid--grid .dot.unused-dot { background: #0b0b12; }
+.mic-grid--grid .dot.parity-dot { border-width: 1px; border-color: #2b2b44; box-shadow: none; }
+.mic-grid--grid .dot.xkt { border-top: 3px solid #c8ccda; }
+.mic-grid--grid .dot.xkl { border-left: 3px solid #c8ccda; }
+/* Filled always wins, regardless of parity/unused/thick-line classes. */
+.mic-grid--grid .dot.active,
+.mic-grid--grid .dot.active:hover { background: #f0c040; box-shadow: none; }
 
 .top-bar {
   display: flex;
@@ -327,12 +334,15 @@ input[type="file"] { display: none; }
   background: #14142400;
   box-sizing: border-box;
 }
-.kcell-fill { background: #12121e; cursor: pointer; }
-.kcell-fill:hover { background: #23233a; }
+/* Valid (in-block) cells read as the interactive area: lighter fill + a real
+   border, so it's obvious where a dot can go. */
+.kcell-fill { background: #20203a; border-color: #3a3a5c; cursor: pointer; }
+.kcell-fill:hover { background: #32324e; }
 .kcell-fill.filled { background: #f0c040; }
 .kcell-fill.filled:hover { background: #f0c040; }
-/* Off-block cells can't hold a dot. */
-.kcell-off { background: #0b0b12; cursor: default; }
+/* Off-block cells can't hold a dot — recede them so they clearly aren't
+   clickable and don't get mistaken for empty fillable cells. */
+.kcell-off { background: #0a0a10; border-color: #17172a; cursor: default; }
 /* Fixed thick grid lines (above certain rows / left of certain columns). */
 .kcell.kt { border-top-width: 3px; border-top-color: #c8ccda; }
 .kcell.kl { border-left-width: 3px; border-left-color: #c8ccda; }

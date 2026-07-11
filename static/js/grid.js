@@ -123,6 +123,8 @@ function renderGrid() {
     tr.appendChild(rLabel);
     for (let c = 0; c < COLS; c++) {
       const td = document.createElement('td');
+      const box = document.createElement('div');
+      box.className = 'xbox';
       const dot = document.createElement('div');
       dot.className = 'dot';
       dot.dataset.r = r;
@@ -133,72 +135,27 @@ function renderGrid() {
       } else if (UNUSED_COLS.has(colNum)) {
         dot.classList.add('unused-dot');
       }
+      // Thick grid lines at the parity boundaries (below the parity row, right
+      // of the parity column). Only visible in Grid view via CSS scoping.
+      if (r === 1) dot.classList.add('xkt');
+      if (c === 1) dot.classList.add('xkl');
       if (grid[r][c]) dot.classList.add('active');
       dot.addEventListener('click', () => {
         grid[r][c] = grid[r][c] ? 0 : 1;
         dot.classList.toggle('active');
         onDotChanged();
       });
-      td.appendChild(dot);
+      box.appendChild(dot);
+      td.appendChild(box);
       tr.appendChild(td);
     }
     table.appendChild(tr);
   }
 
-  const board = document.getElementById('xerox-board');
-  if (board) renderXeroxGridView(board);
-  const gridMode = xeroxView === 'grid';
-  table.style.display = gridMode ? 'none' : '';
-  if (board) board.style.display = gridMode ? '' : 'none';
+  // Grid view is the *same* table with a class toggle, so the two views share
+  // an identical footprint by construction.
+  table.classList.toggle('mic-grid--grid', xeroxView === 'grid');
   onDotChanged();
-}
-
-// Grid view: a tight square-cell grid with the same edge labels as the dots
-// view (column numbers, field names, row numbers) so the footprint matches.
-// Thin cell lines, with thick lines at the parity boundaries (below the parity
-// row, right of the parity column). Every cell drives the same grid array.
-function renderXeroxGridView(board) {
-  board.innerHTML = '';
-
-  const addLabel = (text, cls, gr, gc) => {
-    const el = document.createElement('div');
-    el.className = cls;
-    el.textContent = text;
-    el.style.gridRow = String(gr);
-    el.style.gridColumn = String(gc);
-    board.appendChild(el);
-  };
-
-  // Corner, then column-number (row 1) and field-name (row 2) headers.
-  addLabel('', 'xlabel xcorner', 1, 1);
-  for (let c = 0; c < COLS; c++) {
-    const colNum = c + 1;
-    addLabel(colNum, 'xlabel xcol-num', 1, c + 2);
-    addLabel(COL_LABELS[colNum] || '', 'xlabel xfield' + (UNUSED_COLS.has(colNum) ? ' unused' : ''), 2, c + 2);
-  }
-
-  for (let r = 0; r < ROWS; r++) {
-    addLabel(r + 1, 'xlabel xrow-num', r + 3, 1); // row-number labels down the left
-    for (let c = 0; c < COLS; c++) {
-      let cls = 'kcell kcell-fill';
-      if (r === 1) cls += ' kt'; // thick line below the parity row (row 1)
-      if (c === 1) cls += ' kl'; // thick line right of the parity column (col 1)
-      if (grid[r][c]) cls += ' filled';
-      const cell = document.createElement('button');
-      cell.type = 'button';
-      cell.className = cls;
-      cell.dataset.r = r;
-      cell.dataset.c = c;
-      cell.style.gridRow = String(r + 3);
-      cell.style.gridColumn = String(c + 2);
-      cell.addEventListener('click', () => {
-        grid[r][c] = grid[r][c] ? 0 : 1;
-        cell.classList.toggle('filled');
-        onDotChanged();
-      });
-      board.appendChild(cell);
-    }
-  }
 }
 
 // Switch between the Dots and Grid board views.
