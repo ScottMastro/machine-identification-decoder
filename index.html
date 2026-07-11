@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Xerox Machine Identification Code Decoder</title>
+<title>Machine Identification Code Decoder</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <link rel="stylesheet" href="static/css/style.css">
 </head>
@@ -91,6 +91,7 @@
         </span>
         <label class="file-label" for="konica-file-upload"><i class="fa-solid fa-upload"></i> Upload&hellip;</label>
         <input type="file" id="konica-file-upload" accept=".txt,.csv" onchange="loadKonicaFile(event)">
+        <button class="btn-secondary" onclick="saveKonicaImage()"><i class="fa-solid fa-image"></i> Save image</button>
       </div>
     </div>
     <div class="konica-mode">
@@ -117,14 +118,28 @@
     </div>
 
     <div class="panel" id="konica-blocks-panel">
-      <h2>Blocks by field</h2>
-      <div class="konica-legend" id="konica-legend-mid"></div>
+      <h2 class="h2-help">Decoded
+        <button type="button" class="help-btn" id="konica-cypher-help"
+                onclick="openKonicaCypher()" aria-label="Show the decode cypher table"
+                title="Decode cypher table"><i class="fa-solid fa-circle-question"></i></button>
+      </h2>
       <div class="konica-blocks" id="konica-blocks"></div>
     </div>
 
-    <div class="panel" id="konica-output">
-      <h2>Decoded</h2>
-      <div id="konica-results"></div>
+    <div class="kmodal" id="konica-cypher-modal" hidden>
+      <div class="kmodal-backdrop" onclick="closeKonicaCypher()"></div>
+      <div class="kmodal-box" role="dialog" aria-modal="true" aria-labelledby="kcy-title">
+        <div class="kmodal-head">
+          <h3 id="kcy-title">Decode cypher</h3>
+          <button type="button" class="kmodal-close" onclick="closeKonicaCypher()" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <p class="kmodal-sub">Each pair of block digits (each 0&ndash;5) is used as a two-digit key (00&ndash;55) that the table maps to one serial character.</p>
+        <div class="kcy-grid" id="kcy-grid"></div>
+        <div class="kcy-legend">
+          <span><span class="kcy-swatch letter"></span> letter</span>
+          <span><span class="kcy-swatch digit"></span> digit</span>
+        </div>
+      </div>
     </div>
   </div><!-- /tab-konica -->
 

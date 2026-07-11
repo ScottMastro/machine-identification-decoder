@@ -157,9 +157,12 @@ function decodeKonicaTimestamps(oneHot) {
 // New Code (printers made ~2013+). Instead of a model number + timestamp, the
 // blocks spell out the printer's full serial number, plus checksum boxes.
 //
-// Two block digits (each 0-5) are concatenated as DECIMAL to form a key 0..55,
-// which the cypher maps to one serial character. E.g. box7=3, box3=3 -> key 33
-// -> "A". Reference: "Deciphering the Konica Minolta MIC Dots" (Donovan R.).
+// The two block digits (each 0-5) are used as written to key the cypher table:
+// the pair (hi, lo) maps to one serial character. We index by hi*10+lo purely as
+// a convenient unique key for the pair (identical to keying by the string "hilo")
+// -- it is NOT a base-6 conversion or any arithmetic on the digits. E.g. box7=3,
+// box3=3 -> pair "33" -> "A". Reference: "Deciphering the Konica Minolta MIC Dots"
+// (Donovan R.).
 // ---------------------------------------------------------------------------
 
 const KONICA_CYPHER = {

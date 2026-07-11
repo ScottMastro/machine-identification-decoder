@@ -96,7 +96,8 @@ async function initKonicaSamples() {
 async function onKonicaSampleSelect(e) {
   const name = e.target.value;
   const statusEl = document.getElementById('konica-status');
-  if (!name) { renderKonicaSampleMeta(null); return; }
+  if (!name) { currentKonicaSampleName = null; renderKonicaSampleMeta(null); return; }
+  currentKonicaSampleName = name;
 
   try {
     const res = await fetch(KONICA_SAMPLES_DIR + encodeURIComponent(name), { cache: 'no-store' });
