@@ -409,12 +409,13 @@ input[type="file"] { display: none; }
 
 .krect-label {
   position: absolute;
-  top: -7px;
+  top: -9px;
   left: -1px;
   padding: 0 2px;
-  font-size: 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
   line-height: 1;
-  color: #888;
+  color: var(--kcat, #888);
   background: #16213e;
 }
 
